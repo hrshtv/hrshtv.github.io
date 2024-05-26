@@ -1,0 +1,34 @@
+---
+title: Harshit Varma | Publications
+layout: default
+---
+
+<div class="container-fluid mb-3 text-content" style="min-height: 79vh;">
+
+  <div class="display-4 text-center mt-3 mb-1 text">
+    Publications
+  </div>
+
+  <div class="text-center mt-1 mb-3">
+    <code class="highlight border-highlight badge badge-pill border">
+      * denotes <i>joint first-authors</i>
+    </code>
+  </div>
+
+  <div class="col-md-8 mx-auto">
+      <ol class="list-group list-group-numbered">
+        {% for pub in site.my_publications reversed %}
+          <li class="my-1">
+            <div class="">
+                <a class="" href="{{pub.link}}" target="_blank">
+                  <b>{{ pub.name }}</b>
+                </a>
+            </div>
+            <div><i><a href="{{pub.venue_link}}">{{pub.venue}}</a></i></div>
+            <div>{{pub.authors}}</div>
+          </li>
+        {% endfor %}
+      </ol>
+  </div>
+
+</div>

@@ -1,0 +1,19 @@
+- *[Aug 2023]* Graduated with a bachelor's degree in Computer Science and Engineering (with Honours) from IIT Bombay. Received the <i>Thomas Dooie, Class of 1974 Research Excellence Award</i> for my undergrad research work.
+- *[Jul 2023]* Attended [ICML 2023](https://icml.cc/) in Hawaii *(I-Sea-ML?)* and presented [our work](https://proceedings.mlr.press/v202/varma23a.html) on conditional tree matching
+- *[Jul 2023]* Attended [COLT 2023](https://learningtheory.org/colt2023/) in Bangalore
+- *[Jul 2023]* Joined the [Machine Learning and Optimization team](https://research.google/teams/india-research-lab/) at [Google Research](https://research.google/) as a Pre-Doctoral Researcher
+- *[Jun 2023]* [Our work](https://ieeexplore.ieee.org/abstract/document/10222358) on topologically-constrained image segmentation with uncertainty estimates has been accepted at the [IEEE International Conference on Image Processing (ICIP) 2023](https://2023.ieeeicip.org/)
+- *[May 2023]* Received an AP grade (top 2 out of 85) in [Optimization in Machine Learning (CS769)](https://www.cse.iitb.ac.in/~ganesh/cs769/); ranked #1 in [Statistical Learning and Sequential Prediction (SC652)](https://sites.google.com/view/sc652iitbombay) (both are graduate-level courses at IIT Bombay)
+- *[May 2023]* I will be interning with [Abacus.AI Research](https://abacus.ai/research) this summer
+- *[Apr 2023]* [Our work](https://proceedings.mlr.press/v202/varma23a.html) on conditional tree matching has been accepted at the [International Conference on Machine Learning (ICML) 2023](https://icml.cc/Conferences/2023)
+- *[Jan 2023]* [Our work](https://ieeexplore.ieee.org/document/10230673) on topologically-constrained image segmentation has been accepted at the [IEEE International Symposium on Biomedical Imaging (ISBI) 2023](https://2023.biomedicalimaging.org/en/)
+- *[Jan 2023]* Attended [Research Week with Google](https://sites.google.com/view/researchweek2023/home) (ML foundations sub-track) — a selective 3-day event organized by [Google Research India](https://research.google/locations/india/) and held in Bangalore 
+- *[Jan 2023]* I will be a TA for CS726: Advanced Machine Learning, Spring 2023
+- *[May 2022]* I will be interning at [Adobe Research](https://research.adobe.com/) (remotely at the Big Data Experience Lab, Bangalore, India)
+- *[Oct 2021]* [Our work](https://doi.org/10.1117/12.2613118) on video-based emotion recognition in smart vehicles has been accepted at [SPIE Medical Imaging 2022: Imaging Informatics for Healthcare, Research, and Applications](https://spie.org/MI/conferencedetails/imaging-informatics)
+- *[Jul 2021]* I will be a TA for CS215: Data Analysis and Interpretation, Fall 2021
+- *[May 2021]* I will be interning at [TU Braunschweig](https://www.tu-braunschweig.de/en/)
+- *[Apr 2021]* [Our work](https://aclanthology.org/2021.semeval-1.182/) on [statement verification and evidence finding with tables](https://sites.google.com/view/sem-tab-facts) has been accepted at the [15th International Workshop on Semantic Evaluation](https://semeval.github.io/SemEval2021/) [(ACL-IJCNLP 2021)](https://2021.aclweb.org/)
+- *[Aug 2020]* Secured a *Change of Branch/Major* to the [Department
+of Computer Science and Engineering](https://www.cse.iitb.ac.in/) based on academic performance at the end of first year
+- *[Jul 2019]* Joined [IIT Bombay](https://www.iitb.ac.in/) as an undergraduate 

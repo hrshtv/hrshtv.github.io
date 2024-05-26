@@ -1,0 +1,11 @@
+title: "Harshit Varma"
+url: "https://hrshtv.github.io"
+
+future: true
+
+plugins:
+  - jekyll-sitemap
+
+collections:
+  my_courses:
+  my_publications:

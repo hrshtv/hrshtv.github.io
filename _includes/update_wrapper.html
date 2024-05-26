@@ -1,0 +1,22 @@
+<div class="container-fluid text-content">
+
+    <div class="col-md-8 mt-1 border-0 mx-auto">
+
+        <div class="m-0 mb-3 pb-2 border-0">
+
+            <div class="h2 font-weight-light m-0 p-0">
+                Updates
+            </div>
+
+        </div>
+
+        <div class="m-0 p-0 mb-5 border-0" style="max-height: 25vh; overflow-y: scroll;">
+            <div class="py-1 pr-1 pl-0 m-0">
+                {% capture updates %}{% include updates.md %}{% endcapture %}
+                {{ updates | markdownify }} 
+            </div>
+        </div>
+
+    </div>
+
+</div>
