@@ -1,5 +1,5 @@
 - *[Aug 2023]* Graduated with a bachelor's degree in Computer Science and Engineering (with Honours) from IIT Bombay. Received the <i>Thomas Dooie, Class of 1974 Research Excellence Award</i> for my undergrad research work.
-- *[Jul 2023]* Attended [ICML 2023](https://icml.cc/) in Hawaii *(I-Sea-ML?)* and presented [our work](https://proceedings.mlr.press/v202/varma23a.html) on conditional tree matching
+- *[Jul 2023]* Attended [ICML 2023](https://icml.cc/) in Hawaii and presented [our work](https://proceedings.mlr.press/v202/varma23a.html) that extends Sinkhorn's algorithm for matching trees while supporting constraints on tree edges.
 - *[Jul 2023]* Attended [COLT 2023](https://learningtheory.org/colt2023/) in Bangalore
 - *[Jul 2023]* Joined the [Machine Learning and Optimization team](https://research.google/teams/india-research-lab/) at [Google Research](https://research.google/) as a Pre-Doctoral Researcher
 - *[Jun 2023]* [Our work](https://ieeexplore.ieee.org/abstract/document/10222358) on topologically-constrained image segmentation with uncertainty estimates has been accepted at the [IEEE International Conference on Image Processing (ICIP) 2023](https://2023.ieeeicip.org/)
