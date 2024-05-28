@@ -1,4 +1,4 @@
-- *[May 2024]* New [preprint](https://arxiv.org/abs/2405.17035) out on discrete diffusion models
+- *[May 2024]* New [preprint](https://arxiv.org/abs/2405.17035) out on discrete diffusion via Glauber dynamics
 - *[Dec 2023]* Attended NeurIPS 2023 in New Orleans
 - *[Aug 2023]* Graduated with a bachelor's degree in Computer Science and Engineering (with Honours) from IIT Bombay. Received the <i>Thomas Dooie, Class of 1974 Research Excellence Award</i> for my undergrad research work.
 - *[Jul 2023]* Attended [ICML 2023](https://icml.cc/) in Hawaii and presented [our work](https://proceedings.mlr.press/v202/varma23a.html) that extends Sinkhorn's algorithm for matching trees while supporting constraints on tree edges.
