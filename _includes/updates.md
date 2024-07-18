@@ -1,3 +1,4 @@
+- *[Jul 2024]* I will be attending ICML 2024 in Vienna; excited to present [our recent work](https://arxiv.org/abs/2405.17035) on discrete diffusion models at the [SPIGM](https://spigmworkshop2024.github.io/) workshop.
 - *[May 2024]* New [preprint](https://arxiv.org/abs/2405.17035) out on discrete diffusion via Glauber dynamics (accepted at [SPIGM @ ICML 2024](https://spigmworkshop2024.github.io/))
 - *[Dec 2023]* Attended NeurIPS 2023 in New Orleans
 - *[Aug 2023]* Graduated with a bachelor's degree in Computer Science and Engineering (with Honours) from IIT Bombay. Received the <i>Thomas Dooie, Class of 1974 Research Excellence Award</i> for my undergrad research work.
