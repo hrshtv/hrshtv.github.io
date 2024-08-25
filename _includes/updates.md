@@ -2,9 +2,9 @@
 - *[May 2024]* New [preprint](https://arxiv.org/abs/2405.17035) out on discrete diffusion via Glauber dynamics (accepted at [SPIGM @ ICML 2024](https://spigmworkshop2024.github.io/))
 - *[Dec 2023]* Attended NeurIPS 2023 in New Orleans
 - *[Aug 2023]* Graduated with a bachelor's degree in Computer Science and Engineering (with Honours) from IIT Bombay. Received the <i>Thomas Dooie, Class of 1974 Research Excellence Award</i> for my undergrad research work.
-- *[Jul 2023]* Attended [ICML 2023](https://icml.cc/) in Hawaii and presented [our work](https://proceedings.mlr.press/v202/varma23a.html) that extends Sinkhorn's algorithm for matching trees while supporting constraints on tree edges.
+- *[Jul 2023]* Attended [ICML 2023](https://icml.cc/) in Hawaii and presented [our work](https://proceedings.mlr.press/v202/varma23a.html) that extends Sinkhorn's algorithm for matching trees while supporting constraints on tree edges, with applications to the inference-time adaptation of text-to-tree models.
 - *[Jul 2023]* Attended [COLT 2023](https://learningtheory.org/colt2023/) in Bangalore
-- *[Jul 2023]* Joined the [Machine Learning and Optimization team](https://research.google/teams/india-research-lab/) at [Google Research](https://research.google/) as a Pre-Doctoral Researcher
+- *[Jul 2023]* Joined the [Machine Learning and Optimization team](https://research.google/teams/india-research-lab/) at [Google Research](https://research.google/) (moved to [Google DeepMind](https://deepmind.google/) as of May 2024) as a Pre-Doctoral Researcher
 - *[Jun 2023]* [Our work](https://ieeexplore.ieee.org/abstract/document/10222358) on topologically-constrained image segmentation with uncertainty estimates has been accepted at the [IEEE International Conference on Image Processing (ICIP) 2023](https://2023.ieeeicip.org/)
 - *[May 2023]* Received an AP grade (top 2 out of 85) in [Optimization in Machine Learning (CS769)](https://www.cse.iitb.ac.in/~ganesh/cs769/); ranked #1 in [Statistical Learning and Sequential Prediction (SC652)](https://sites.google.com/view/sc652iitbombay) (both are graduate-level courses at IIT Bombay)
 - *[May 2023]* I will be interning with [Abacus.AI Research](https://abacus.ai/research) this summer
