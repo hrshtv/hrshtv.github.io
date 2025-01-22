@@ -1,3 +1,4 @@
+- *[Jan 2025]* [GGM](https://arxiv.org/abs/2405.17035) accepted at [ICLR 2025](https://iclr.cc/)!
 - *[Sept 2024]* Joined a stealth AI startup as a Founding Member of Technical Staff
 - *[Jul 2024]* I will be attending ICML 2024 in Vienna; excited to present [our recent work](https://arxiv.org/abs/2405.17035) on discrete diffusion models at the [SPIGM](https://spigmworkshop2024.github.io/) workshop.
 - *[May 2024]* New [preprint](https://arxiv.org/abs/2405.17035) out on discrete diffusion via Glauber dynamics (accepted at [SPIGM @ ICML 2024](https://spigmworkshop2024.github.io/))
