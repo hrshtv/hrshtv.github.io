@@ -1,6 +1,6 @@
-- *[Feb 2025]* [Inception Labs](https://www.inceptionlabs.ai/) is out of stealth! Go check out [Mercury-Coder](https://chat.inceptionlabs.ai/), the first industry-scale diffusion LLM that ranks #1 in speed and #2 in quality on the copilot arena, and is up to 10x faster than autoregressive models (1100+ tok/s on NVIDIA hardware!)
+- *[Feb 2025]* [Inception Labs](https://www.inceptionlabs.ai/) is out of stealth! Go check out [Mercury-Coder](https://chat.inceptionlabs.ai/), the first industry-scale diffusion LLM that ranks #1 in speed and #2 in quality on the copilot arena, and is up to 10x faster than autoregressive models (1100+ tok/s on NVIDIA hardware!). News: [TechCrunch](https://techcrunch.com/2025/02/26/inception-emerges-from-stealth-with-a-new-type-of-ai-model/), [Ars Technica](https://arstechnica.com/ai/2025/02/new-ai-text-diffusion-models-break-speed-barriers-by-pulling-words-from-noise/), [The Batch](https://www.deeplearning.ai/the-batch/mercury-coder-may-be-the-first-commercially-available-language-diffusion-model/)
 - *[Jan 2025]* [GGM](https://arxiv.org/abs/2405.17035) accepted at [ICLR 2025](https://iclr.cc/)!
-- *[Sept 2024]* Joined a stealth AI startup as a Founding Member of Technical Staff
+- *[Sept 2024]* Joined the founding team of a stealth AI startup
 - *[Jul 2024]* I will be attending ICML 2024 in Vienna; excited to present [our recent work](https://arxiv.org/abs/2405.17035) on discrete diffusion models at the [SPIGM](https://spigmworkshop2024.github.io/) workshop.
 - *[May 2024]* New [preprint](https://arxiv.org/abs/2405.17035) out on discrete diffusion via Glauber dynamics (accepted at [SPIGM @ ICML 2024](https://spigmworkshop2024.github.io/))
 - *[Dec 2023]* Attended NeurIPS 2023 in New Orleans
