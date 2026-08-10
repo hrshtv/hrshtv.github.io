@@ -2,4 +2,4 @@ I am a Founding ML/Research Engineer at [Inception](https://www.inceptionlabs.ai
 Prior to that, I graduated from [IIT Bombay](http://www.iitb.ac.in/) in 2023 with a bachelor's degree (with honours) in [Computer Science and Engineering](https://www.cse.iitb.ac.in/), where I was fortunate to be advised by [Prof. Sunita Sarawagi](https://www.cse.iitb.ac.in/~sunita/) and by [Prof. Suyash Awate](https://www.cse.iitb.ac.in/~suyash/).  
 My current research interests lie broadly in machine learning. I am particularly interested in building algorithms and systems for self-improving agents, multi-agent collaboration/optimization, long-horizon discovery, and other related topics.  
   
-The best way to contact me is via email: <code>harshit<i class="bi bi-at"></i>inceptionlabs.ai</code>
+The best way to contact me is via email: <code>harshitvarma<i class="bi bi-at"></i>berkeley.edu</code>
