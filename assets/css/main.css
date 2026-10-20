@@ -236,3 +236,163 @@ i:hover{
   background: var(--scrollbar-thumb-color) !important;
   transition: background var(--transition-duration) !important;
 }
+
+/* BLOG */
+
+.post-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.post-item {
+  display: flex;
+  align-items: baseline;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--scrollbar-track-color);
+  transition: border-color var(--transition-duration);
+}
+
+.post-item:last-child {
+  border-bottom: none;
+}
+
+.post-date {
+  flex: 0 0 8.5rem;
+  font-size: 0.85rem;
+}
+
+.post-link {
+  font-weight: 700;
+}
+
+.post-description {
+  font-size: 0.95rem;
+}
+
+@media (max-width: 576px) {
+  .post-item { flex-direction: column; }
+  .post-date { flex-basis: auto; margin-bottom: 0.15rem; }
+}
+
+.post-title {
+  font-size: 2.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.post-content {
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.post-content h2, .post-content h3, .post-content h4 {
+  font-weight: 700;
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.post-content h2 { font-size: 1.5rem; }
+.post-content h3 { font-size: 1.25rem; }
+.post-content h4 { font-size: 1.1rem; }
+
+.post-content img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1.5rem auto 0.5rem;
+  border-radius: 4px;
+  background-color: #fff;
+}
+
+.post-content .caption {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text-light-color);
+  margin-bottom: 1.75rem;
+  transition: color var(--transition-duration);
+}
+
+.post-content hr {
+  border-top: 1px solid var(--scrollbar-track-color);
+  margin: 2rem 0;
+}
+
+.post-content blockquote {
+  border-left: 3px solid var(--main-link-color);
+  padding-left: 1rem;
+  color: var(--text-light-color);
+  font-style: italic;
+  transition: color var(--transition-duration), border-color var(--transition-duration);
+}
+
+.post-content code {
+  font-size: 0.875em;
+  color: var(--main-text-color);
+  background-color: var(--nav-bg-color);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+  transition: color var(--transition-duration), background-color var(--transition-duration);
+}
+
+.post-content pre {
+  background-color: var(--nav-bg-color);
+  padding: 1rem;
+  border-radius: 4px;
+  overflow-x: auto;
+  line-height: 1.5;
+  transition: background-color var(--transition-duration);
+}
+
+.post-content pre code {
+  padding: 0;
+  background: none;
+}
+
+.post-content .highlight {
+  color: inherit !important;
+}
+
+.post-content table {
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 1rem 0 1.5rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+.post-content th {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.post-content th, .post-content td {
+  padding: 0.4rem 0.9rem;
+  border-bottom: 1px solid var(--scrollbar-track-color);
+  transition: border-color var(--transition-duration);
+}
+
+.post-content .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* Syntax highlighting (Rouge), kept muted */
+.post-content .highlight .c, .post-content .highlight .c1, .post-content .highlight .cm { color: var(--text-light-color); font-style: italic; }
+.post-content .highlight .k, .post-content .highlight .kd, .post-content .highlight .kn, .post-content .highlight .ow { color: var(--main-link-color); font-weight: 700; }
+.post-content .highlight .s, .post-content .highlight .s1, .post-content .highlight .s2 { color: #2e8b57; }
+.post-content .highlight .mi, .post-content .highlight .mf { color: #b5651d; }
+.post-content .highlight .nf, .post-content .highlight .nc { font-weight: 700; }
+
+.post-meta {
+  font-size: 1.05rem;
+}
+
+.post-meta code {
+  white-space: nowrap;
+}
+
+.post-meta-sep {
+  margin: 0 0.75rem;
+}
