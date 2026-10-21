@@ -25,17 +25,17 @@ Figure 1. Left: average training loss per pass over the data, plain SFT. Right: 
 
 **TailSFT did not work on our agent data.** We ran it per trajectory, as published, and with two agent-specific variants: per step (reasoning plus its command) and per span (reasoning and command scored separately). Each variant dropped 50% of its units per batch and trained for 3 epochs.
 
-**Table 1.** TailSFT and its agent extensions, pass@k in %. All runs train for 3 epochs (66 steps). Terminal-Bench 2.0 uses 89 tasks at pass@1, 87 at pass@3 and 83 at pass@8; TB-Lite uses 99, 98 and 94. pass@8 needs 8 seeds, so the 3-seed variants have none.
+**Table 1.** TailSFT and its agent extensions, pass@k in %. All runs train for 3 epochs (66 steps on the terminal data, 228 on the SWE data). Terminal-Bench 2.0 uses 89 tasks at pass@1, 87 at pass@3 and 83 at pass@8; TB-Lite uses 99, 98 and 94; SWE-bench Verified uses all 100 tasks, with 8 seeds for every model shown. pass@8 needs 8 seeds, so the 3-seed variants have none. "–": not run.
 
-| model | seeds | TB2 pass@1 | TB2 pass@3 | TB2 pass@8 | TB-Lite pass@1 | TB-Lite pass@3 | TB-Lite pass@8 |
-|---|---|---|---|---|---|---|---|
-| SFT, 3 epochs | 8 | 9.7 | 20.4 | 33.7 | 21.6 | 39.0 | 55.3 |
-| TailSFT, per trajectory (drop share ramped up over the run) | 8 | 10.4 | 19.4 | 30.1 | 22.1 | 39.4 | 57.4 |
-| TailSFT, per trajectory (full drop share from step 5) | 3 | 9.4 | 17.2 | – | 21.7 | 38.8 | – |
-| TailSFT, per agent step | 3 | 8.6 | 21.8 | – | 22.9 | 40.8 | – |
-| TailSFT, per span (reasoning and command separately) | 3 | 8.2 | 16.1 | – | 20.2 | 42.9 | – |
+| model | seeds | TB2 pass@1 | TB2 pass@3 | TB2 pass@8 | TB-Lite pass@1 | TB-Lite pass@3 | TB-Lite pass@8 | SWE pass@1 | SWE pass@3 |
+|---|---|---|---|---|---|---|---|---|---|
+| SFT, 3 epochs | 8 | 9.7 | 20.4 | 33.7 | 21.6 | 39.0 | 55.3 | 21.4 | 37.4 |
+| TailSFT, per trajectory (drop share ramped up over the run) | 8 | 10.4 | 19.4 | 30.1 | 22.1 | 39.4 | 57.4 | 20.6 | 36.9 |
+| TailSFT, per trajectory (full drop share from step 5) | 3 | 9.4 | 17.2 | – | 21.7 | 38.8 | – | – | – |
+| TailSFT, per agent step | 3 | 8.6 | 21.8 | – | 22.9 | 40.8 | – | 20.8 | 36.8 |
+| TailSFT, per span (reasoning and command separately) | 3 | 8.2 | 16.1 | – | 20.2 | 42.9 | – | – | – |
 
-None moved pass@1. At pass@3, no variant improved on SFT on both benchmarks by more than a couple of points, well within the noise of three seeds, and per-trajectory TailSFT, with 8 seeds, gave no coverage gain either: pass@8 was 30.1% against 33.7% on Terminal-Bench 2.0, and 57.4% against 55.3% on TB-Lite. Scoring reasoning and commands separately did not help either; the two start from very different losses (0.82 against 0.26 on average).
+None moved pass@1, on the terminal benchmarks or on SWE-bench Verified (20.6% and 20.8% against 21.4% for SFT; the SWE runs used the terminal runs' schedules scaled to 228 steps: the per-trajectory share ramped over the whole run, the per-step share full from step 17). At pass@3, no variant improved on SFT on both benchmarks by more than a couple of points, well within the noise of three seeds, and per-trajectory TailSFT, with 8 seeds, gave no coverage gain either: pass@8 was 30.1% against 33.7% on Terminal-Bench 2.0, and 57.4% against 55.3% on TB-Lite. Scoring reasoning and commands separately did not help either; the two start from very different losses (0.82 against 0.26 on average).
 
 **What the tokens show.** Before training, the model gives a probability above 0.9 to 65% of the training tokens and above 0.99 to 52% (Figure 1, right). For shell commands, 78% are above 0.9. The 2% below 0.01 are mostly ordinary words (such as "Check", "which", "Step"), not identifiers or hashes. This led us to select individual tokens rather than whole sequences, and to judge each token by its own loss history rather than by a snapshot of confidence. We propose *Plateau Dropping*, which does both: it removes a token from the training loss once that token's loss has plateaued. The token stays in its sequence, so its loss is still measured each time the sequence is revisited, and if that loss starts changing again, the token goes back into the training loss.
 
@@ -117,7 +117,7 @@ Figure 4. Token-level trace of 300 training trajectories over 10-epoch runs (tra
 
 ### 2.4 Evaluation
 
-We use all 89 tasks of Terminal-Bench 2.0, TB-Lite (100 command-line tasks), and a fixed random 100 tasks of SWE-bench Verified. Every model runs in mini-swe-agent at temperature 1, with three times the default time limit. Each seed is one independent attempt at every task; we use 8 seeds per model, and 3 for the ablations, the RL checkpoints and three of the TailSFT variants (the "seeds" column of each table). A task is solved only with full credit. An attempt that hits the time limit is scored by the tests on whatever the agent left, so in rare cases (6 of about 400 timed-out attempts) it still counts as solved; infrastructure crashes are discarded. All numbers are averaged over seeds: pass@k is the unbiased estimate from the seeds' attempts, and each column uses the tasks with at least k valid attempts for every model in its comparison. One comparison per benchmark covers Tables 3 to 5, and on SWE-bench Verified also Table 7, so it includes the stronger-base models of Section 3.4; Table 7's terminal rows are matched among their own three models, and on TB-Lite the base model of Tables 3 and 4 is scored on its own task set.
+We use all 89 tasks of Terminal-Bench 2.0, TB-Lite (100 command-line tasks), and a fixed random 100 tasks of SWE-bench Verified. Every model runs in mini-swe-agent at temperature 1, with three times the default time limit. Each seed is one independent attempt at every task; we use 8 seeds per model, and 3 for the ablations, the RL checkpoints and three of the TailSFT variants (the "seeds" column of each table). A task is solved only with full credit. An attempt that hits the time limit is scored by the tests on whatever the agent left, so in rare cases (6 of about 400 timed-out attempts) it still counts as solved; infrastructure crashes are discarded. All numbers are averaged over seeds: pass@k is the unbiased estimate from the seeds' attempts, and each column uses the tasks with at least k valid attempts for every model in its comparison. One comparison per benchmark covers Tables 3 to 5; Table 7's rows are matched among their own three models per benchmark, and on TB-Lite the base model of Tables 3 and 4 is scored on its own task set.
 
 One change to the SWE-bench Verified grader: before running the tests, the standard Harbor task script deletes every file that git does not track, which also deletes new source files the agent created as part of its fix, so a correct fix that adds a file is graded as a failure. Our test script deletes only the untracked files that the benchmark's own test patch touches, and is otherwise unchanged. Every model in this post is graded the same way, so the comparisons between them are unaffected, but our absolute SWE-bench Verified numbers can be higher than those from the stock Harbor tasks.
 
@@ -174,12 +174,10 @@ Figure 7. SWE-bench Verified (random 100 tasks), pass@1, pass@2, pass@4 and pass
 | + SFT, 3 epochs | 8 | 21.4 | 31.5 | 41.4 | – |
 | + SFT, 3 epochs, data order 2 | 8 | 19.4 | 28.9 | 38.9 | – |
 | + SFT, 20 epochs | 8 | 19.5 | 28.6 | 37.4 | 47.7 |
-| + TailSFT per trajectory, 3 epochs | 8 | 20.6 | 30.7 | 41.5 | – |
-| + TailSFT per agent step, 3 epochs | 8 | 20.8 | 30.9 | 40.7 | – |
 | + Plateau Dropping, 20 epochs | 8 | 31.1 | 41.7 | 51.6 | **61.6** |
 | + Plateau Dropping, 20 epochs, data order 2 | 8 | **31.7** | **43.5** | **54.1** | – |
 
-Plain SFT barely moves the base model at either length: 21.4% and 19.4% pass@1 after 3 epochs (two data orders) and 19.5% after 20. Plateau Dropping on the same data reaches 31.1% and 31.7% in the two data orders, about 10 points above plain SFT at its best length (+9.8 and +10.3 points over 3-epoch SFT with data order 1, paired standard errors 1.7 and 1.9), and adds about 14 points at pass@8 over the base. TailSFT, run for 3 epochs as in Table 1, lands with plain SFT here too (20.6% per trajectory, 20.8% per agent step). All models produce well-formed tool calls (fewer than 2% of steps without one), and 40 epochs of Plateau Dropping did not improve on 20.
+Plain SFT barely moves the base model at either length: 21.4% and 19.4% pass@1 after 3 epochs (two data orders) and 19.5% after 20. Plateau Dropping on the same data reaches 31.1% and 31.7% in the two data orders, about 10 points above plain SFT at its best length (+9.8 and +10.3 points over 3-epoch SFT with data order 1, paired standard errors 1.7 and 1.9), and adds about 14 points at pass@8 over the base. TailSFT on the SWE data lands with plain SFT as well (Table 1). All models produce well-formed tool calls (fewer than 2% of steps without one), and 40 epochs of Plateau Dropping did not improve on 20.
 
 **Why it helps on SWE-bench.** We compared the agent trajectories of the two Plateau Dropping runs with those of 3-epoch SFT (both data orders) and the base model, about 800 attempts each. Plateau Dropping does not win by submitting more often (39 to 42% of its attempts end in a submission, against 33 to 39%), but by fixing correctly once it has found the right place: among attempts that edit every file the reference fix edits, 42 to 44% pass, against 28 to 33% for 3-epoch SFT. Alongside this, its reasoning per step is short and stays short (about 1.6 thousand characters, against 2.7 thousand for SFT, whose reasoning grows about threefold over a long attempt), so it fits more steps into the same context (a median of about 245 steps per attempt, against 170 to 185), and it spends them on checking: it runs the repository's tests about 2.4 times as often (19 to 20 runs per attempt against 8) and more often after its last edit (40 to 42% of attempts against 28%). These are correlations from one analysis of the evaluation trajectories, not a causal test. Plateau Dropping also has a failure mode of its own: 5% of its commands repeat the previous command exactly, against 0.4% for SFT.
 
@@ -216,7 +214,7 @@ On the SWE data we also tested two changes to the rule itself, each a single 20-
 
 We repeated the 20-epoch runs from a stronger checkpoint of the same model, which already achieves a pass@1 of 11.9% on Terminal-Bench 2.0, 24.2% on TB-Lite and 33.7% on SWE-bench Verified. On the terminal data we also trained plain SFT for the same 20 epochs as a control.
 
-**Table 7.** Stronger starting model, pass@k in %. Terminal benchmarks: matched across the three models shown (Terminal-Bench 2.0: 88, 88, 88 and 87 tasks; TB-Lite: 98, 98, 98 and 93). SWE-bench Verified: same task sets as Table 5. "–": not run.
+**Table 7.** Stronger starting model, pass@k in %. Terminal benchmarks: matched across the three models shown (Terminal-Bench 2.0: 88, 88, 88 and 87 tasks; TB-Lite: 98, 98, 98 and 93). SWE-bench Verified: matched across the three models shown (100, 100, 100 and 89 tasks).
 
 | benchmark | model | seeds | pass@1 | pass@2 | pass@4 | pass@8 |
 |---|---|---|---|---|---|---|
@@ -226,11 +224,11 @@ We repeated the 20-epoch runs from a stronger checkpoint of the same model, whic
 | TB-Lite | stronger base | 8 | 24.2 | 35.8 | 47.5 | 59.1 |
 | TB-Lite | + SFT, 20 epochs | 8 | **27.3** | **39.8** | 52.3 | **66.7** |
 | TB-Lite | + Plateau Dropping, 20 epochs | 8 | 26.9 | 39.4 | **52.5** | 65.6 |
-| SWE-bench Verified | stronger base | 8 | **33.7** | 43.6 | 51.7 | 58.1 |
-| SWE-bench Verified | + SFT, 20 epochs | – | – | – | – | – |
-| SWE-bench Verified | + Plateau Dropping, 20 epochs | 8 | 32.8 | **44.2** | **54.5** | **64.0** |
+| SWE-bench Verified | stronger base | 8 | **33.7** | 43.6 | 51.7 | 57.3 |
+| SWE-bench Verified | + SFT, 20 epochs | 8 | 21.1 | 32.5 | 45.0 | 59.6 |
+| SWE-bench Verified | + Plateau Dropping, 20 epochs | 8 | 32.8 | **44.2** | **54.5** | **62.9** |
 
-On Terminal-Bench 2.0, Plateau Dropping raises pass@1 from 11.9% to 15.3%, while plain SFT for the same 20 epochs leaves it at 11.5%; at pass@8 the two fine-tuned models are level (35.6%). On TB-Lite both raise pass@1, to 26.9% with Plateau Dropping and 27.3% with plain SFT, and both raise pass@8 by about 7 points. On SWE-bench Verified Plateau Dropping does not improve pass@1 (33.7% to 32.8%), while pass@8 rises from 58.1% to 64.0%; plain SFT on the SWE data from this checkpoint has not been run.
+On Terminal-Bench 2.0, Plateau Dropping raises pass@1 from 11.9% to 15.3%, while plain SFT for the same 20 epochs leaves it at 11.5%; at pass@8 the two fine-tuned models are level (35.6%). On TB-Lite both raise pass@1, to 26.9% with Plateau Dropping and 27.3% with plain SFT, and both raise pass@8 by about 7 points. On SWE-bench Verified neither fine-tuned model improves on the base's pass@1, but they differ sharply: 20 epochs of plain SFT drop it from 33.7% to 21.1%, while Plateau Dropping over the same 20 epochs keeps it (32.8%) and raises pass@8 from 57.3% to 62.9% (plain SFT: 59.6%).
 
 ### 3.5 RL after fine-tuning
 
