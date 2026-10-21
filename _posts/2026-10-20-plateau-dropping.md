@@ -114,6 +114,7 @@ Figure 4. Token-level trace of 300 training trajectories over 10-epoch runs (tra
 | **ours, terminal data** | terminal | 1,610 | 6,301 | 45M (28M trained) |
 | **ours, SWE data** | SWE | 7,005 | 9,229 | 319M |
 
+
 ### 2.4 Evaluation
 
 We use all 89 tasks of Terminal-Bench 2.0, TB-Lite (100 command-line tasks), and a fixed random 100 tasks of SWE-bench Verified. Every model runs in mini-swe-agent at temperature 1, with three times the default time limit. Each seed is one independent attempt at every task; we use 8 seeds per model, and 3 for the ablations, the RL checkpoints and three of the TailSFT variants (the "seeds" column of each table). A task is solved only with full credit. An attempt that hits the time limit is scored by the tests on whatever the agent left, so in rare cases (6 of about 400 timed-out attempts) it still counts as solved; infrastructure crashes are discarded. All numbers are averaged over seeds: pass@k is the unbiased estimate from the seeds' attempts, and each column uses the tasks with at least k valid attempts for every model in its comparison. One comparison per benchmark covers Tables 3 to 5, and on SWE-bench Verified also Table 7, so it includes the stronger-base models of Section 3.4; Table 7's terminal rows are matched among their own three models, and on TB-Lite the base model of Tables 3 and 4 is scored on its own task set.
@@ -165,19 +166,26 @@ At 20 epochs, Plateau Dropping achieves the highest pass@1 on both benchmarks: 1
 Figure 7. SWE-bench Verified (random 100 tasks), pass@1, pass@2, pass@4 and pass@8 (%), averaged over 8 seeds. Both fine-tuned models trained for 20 epochs on the SWE data.
 {: .caption}
 
-**Table 5.** SWE-bench Verified, pass@k in % (100, 100, 100 and 86 tasks per column).
+**Table 5.** SWE-bench Verified, pass@k in %. pass@1, pass@2 and pass@4 use all 100 tasks; pass@8 uses the 86 tasks of the original comparison ("–": too few tasks with 8 valid attempts for every model of this table). Data order 2 repeats the same training with the training data sampled in a different order.
 
 | model | seeds | pass@1 | pass@2 | pass@4 | pass@8 |
 |---|---|---|---|---|---|
 | base model | 8 | 19.3 | 28.0 | 37.7 | 47.7 |
+| + SFT, 3 epochs | 8 | 21.4 | 31.5 | 41.4 | – |
+| + SFT, 3 epochs, data order 2 | 8 | 19.4 | 28.9 | 38.9 | – |
 | + SFT, 20 epochs | 8 | 19.5 | 28.6 | 37.4 | 47.7 |
-| + Plateau Dropping, 20 epochs | 8 | **31.1** | **41.7** | **51.6** | **61.6** |
+| + TailSFT per trajectory, 3 epochs | 8 | 20.6 | 30.7 | 41.5 | – |
+| + TailSFT per agent step, 3 epochs | 8 | 20.8 | 30.9 | 40.7 | – |
+| + Plateau Dropping, 20 epochs | 8 | 31.1 | 41.7 | 51.6 | **61.6** |
+| + Plateau Dropping, 20 epochs, data order 2 | 8 | **31.7** | **43.5** | **54.1** | – |
 
-Plain SFT leaves the base model where it was, while Plateau Dropping on the same data adds 11.6 points at pass@1 and about 14 at pass@8. Both models produce well-formed tool calls (fewer than 2% of steps without one), and 40 epochs did not improve on 20.
+Plain SFT barely moves the base model at either length: 21.4% and 19.4% pass@1 after 3 epochs (two data orders) and 19.5% after 20. Plateau Dropping on the same data reaches 31.1% and 31.7% in the two data orders, about 10 points above plain SFT at its best length (+9.8 and +10.3 points over 3-epoch SFT with data order 1, paired standard errors 1.7 and 1.9), and adds about 14 points at pass@8 over the base. TailSFT, run for 3 epochs as in Table 1, lands with plain SFT here too (20.6% per trajectory, 20.8% per agent step). All models produce well-formed tool calls (fewer than 2% of steps without one), and 40 epochs of Plateau Dropping did not improve on 20.
+
+**Why it helps on SWE-bench.** We compared the agent trajectories of the two Plateau Dropping runs with those of 3-epoch SFT (both data orders) and the base model, about 800 attempts each. Plateau Dropping does not win by submitting more often (39 to 42% of its attempts end in a submission, against 33 to 39%), but by fixing correctly once it has found the right place: among attempts that edit every file the reference fix edits, 42 to 44% pass, against 28 to 33% for 3-epoch SFT. Alongside this, its reasoning per step is short and stays short (about 1.6 thousand characters, against 2.7 thousand for SFT, whose reasoning grows about threefold over a long attempt), so it fits more steps into the same context (a median of about 245 steps per attempt, against 170 to 185), and it spends them on checking: it runs the repository's tests about 2.4 times as often (19 to 20 runs per attempt against 8) and more often after its last edit (40 to 42% of attempts against 28%). These are correlations from one analysis of the evaluation trajectories, not a causal test. Plateau Dropping also has a failure mode of its own: 5% of its commands repeat the previous command exactly, against 0.4% for SFT.
 
 ### 3.3 Ablations
 
-All ablations use the terminal data and 3 seeds. We test whether it matters which tokens are dropped, or only how many. Random dropping removes a random 65% of tokens. Confidence dropping removes every token the model already predicts with probability above 0.9, the snapshot-of-confidence approach that Section 1 argues against. Neither has a built-in start point, so both start at step 65, when Plateau Dropping's drop share has levelled off at about 60%, and all three train for 220 steps. Plateau Dropping itself can only drop a token from its third visit on, so its dropping begins around step 30.
+The ablations in Table 6 use the terminal data and 3 seeds. We test whether it matters which tokens are dropped, or only how many. Random dropping removes a random 65% of tokens. Confidence dropping removes every token the model already predicts with probability above 0.9, the snapshot-of-confidence approach that Section 1 argues against. Neither has a built-in start point, so both start at step 65, when Plateau Dropping's drop share has levelled off at about 60%, and all three train for 220 steps. Plateau Dropping itself can only drop a token from its third visit on, so its dropping begins around step 30.
 
 ![Figure 8](/assets/img/blog/plateau-dropping/fig6_ablations.png)
 
@@ -201,6 +209,8 @@ Figure 8. pass@1 (%) for each variant, averaged over 3 seeds. The dashed line ma
 - **Confidence dropping** of every token above probability 0.9 is the worst variant.
 - **A smoothed plateau test** (moving-average loss history) keeps the Terminal-Bench 2.0 gain but loses TB-Lite.
 - **40 epochs** matches 20.
+
+On the SWE data we also tested two changes to the rule itself, each a single 20-epoch training run evaluated with 8 seeds. Letting a dropped token back in only when its loss rises (instead of on any change) gives 28.5% pass@1, and keeping dropped tokens at a quarter of their weight instead of removing them also gives 28.5%; both are 2.6 points below the rule as described (31.1%, paired standard error 1.9). The gap widens at larger k for the down-weighted variant (45.9% against 51.6% at pass@4). Neither change helps, and removing plateaued tokens completely works at least as well as keeping part of their signal.
 
 ### 3.4 A stronger starting model
 
