@@ -26,6 +26,9 @@ layout: default
             </div>
             <div><i><a href="{{pub.venue_link}}">{{pub.venue}}</a></i></div>
             <div>{{pub.authors}}</div>
+            {% if pub.press %}
+              <div><span class="text-light">Press:</span> {{ pub.press | join: " &middot; " }}</div>
+            {% endif %}
           </li>
         {% endfor %}
       </ol>
