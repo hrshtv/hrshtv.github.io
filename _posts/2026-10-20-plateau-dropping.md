@@ -1,50 +1,51 @@
 ---
 layout: post
-published: false
 title: "Plateau Dropping: per-token loss-plateau gating for agentic SFT"
-description: "Dropping tokens from the SFT loss once their loss plateaus makes longer fine-tuning pay off for agents, and gives a better starting point for RL."
+description: "Dropping tokens from the SFT loss once their loss plateaus teaches agents in far fewer passes; with longer training, plain SFT catches up. Corrected version."
 authors: Harshit Varma
 math: true
 ---
 
-**Summary.** SFT sharpens a model: every extra pass pushes probability further onto what it already predicts well. That raises pass@1, but it can shrink the range of solutions the model still samples, which is what reinforcement learning (RL) needs to build upon. So a heavily fine-tuned model can potentially be a worse starting point for RL. In our agentic SFT setup, the loss flattens after one pass and two thirds of the training tokens are already predicted with probability above 0.9 before any training, suggesting that further passes mostly sharpen what the model already knows. Filtering out whole sequences the model already fits (TailSFT) and its variants did not help. We propose *Plateau Dropping*, a per-token alternative: during SFT, it tracks each training token's loss across passes over the data and removes the token from the training loss once its loss has stopped changing, so each update is driven only by tokens the model is still learning. With the same data, this approach raises Terminal-Bench 2.0 pass@1 from 9.8% to 14.1%, while pass@8 stays about the same (31.8% against 33.3%), and on SWE-bench Verified it raises pass@1 from 19.5% to 31.1% and pass@8 from 47.7% to 61.6%. It is also a better starting point for RL: on its own it matches the best RL checkpoint from plain SFT, and RL from it improves further.
+**Note on this version.** This post replaces the earlier draft of October 2026. Every fine-tuning run behind that draft was trained with two trainer bugs: the master copy of the weights was kept in bf16 instead of fp32, so most optimizer updates were rounded away and the models barely trained, and the mixture of experts dropped 14 to 19% of its token-to-expert assignments. All results below come from re-trained models; Section 6 describes the bugs, how they were found, and what changed. A few evaluations are still running; their cells are marked "[pending]".
+
+**Summary.** Supervised fine-tuning on agent trajectories spends most of its gradient on tokens the model has already learned. We propose *Plateau Dropping*, a per-token change to SFT: the trainer tracks each training token's loss across passes over the data and removes the token from the training loss once its loss has stopped changing, so each update is driven only by tokens the model is still learning. What this buys is speed: the model acquires the agent's behaviour in far fewer passes. On SWE-bench Verified (random 100 tasks), after 3 nominal epochs on the same data, Plateau Dropping reaches 31.9% pass@1 against 23.4% for plain SFT, and 67.0% against 58.3% at pass@8. The trajectories show why: at that budget the plain-SFT agent still writes 55% longer reasoning per step, breaks the tool-call format in 1 attempt in 9, tests half as often and submits a third less, while the Plateau Dropping agent already behaves like a fully trained one. On the terminal benchmarks the advantage appears at 220 steps (+4.9 points of pass@1 on TB-Lite, +1.8 on Terminal-Bench 2.0). With more passes the gap closes, and for Plateau Dropping the closing looks like sharpening: between 10 and 20 nominal epochs its pass@1 stays put or slips while its pass@8 falls on all three benchmarks (by 2.0, 6.6 and 2.4 points on SWE-bench Verified, TB-Lite and Terminal-Bench 2.0), so that after 20 epochs on the SWE data the two methods are level (44.9% against 45.8% pass@1, 74.7% against 72.7% pass@8) and on the terminal data the 440-step Plateau Dropping run sits below its own 220-step result while plain SFT holds. Filtering whole sequences the model already fits (TailSFT) does not help at any budget we tested. One reason the long Plateau Dropping runs may be held back is gradient clipping, which hits them on 86 to 100% of their steps and plain SFT on 3 to 5%; an ablation with the clip raised is being evaluated.
 
 ---
 
 ## 1. Introduction and motivation
 
-We fine-tuned a 67B MoE model (with about 2B active parameters) on 6.3k successful agent trajectories covering 1.6k command-line tasks. The training loss averaged 0.48 over the first pass and 0.41 to 0.46 in each of the next seven (Figure 1, left). Ten epochs were barely better than three: 11.8% against 9.8% pass@1 on Terminal-Bench 2.0, and 21.4% against 21.8% on TB-Lite.
+We fine-tune a 67B mixture-of-experts model (about 2B active parameters) on successful agent trajectories: 6.3k trajectories covering 1.6k command-line tasks, and 9.2k trajectories covering 7.0k software-engineering tasks. Plain SFT keeps learning for as long as we train it: on the SWE data the mean training loss falls from 0.55 on the first pass to 0.16 on the fourteenth (Figure 1a), and the evaluation scores rise with it (Section 3). The question this post asks is where that gradient goes, and whether an SFT recipe that concentrates its updates on the tokens the model is still learning gets to the trained behaviour faster, or further.
 
-![Figure 1](/assets/img/blog/plateau-dropping/fig1_motivation.png)
+![Figure 1](/assets/img/blog/plateau-dropping/fig1_losses_corrected.png)
 
-Figure 1. Left: average training loss per pass over the data, plain SFT. Right: how confidently the model, before fine-tuning, already predicts the tokens it is trained on; the dark segment is the share above 0.99.
+Figure 1. Training loss on the SWE data. (a) Mean training loss per pass over the data (103 steps each) for plain SFT (red) and Plateau Dropping over all tokens (green). (b) The 20-epoch runs step by step (15-step moving average): plain SFT over all tokens; Plateau Dropping over all tokens, over the tokens it still trains and over the tokens it has dropped; grey, right axis: the fraction of tokens Plateau Dropping keeps, 100% until step 192 and 32% at the end.
 {: .caption}
 
-**SFT can sharpen, but might reduce coverage.** Prior work finds that long SFT concentrates probability on a narrower set of outputs, and that this hurts coverage: during SFT on reasoning data, pass@1 keeps improving while pass@k deteriorates as output diversity collapses ([Dang et al., 2025](https://arxiv.org/abs/2504.10478)); training longer with cross-entropy lowers pass@N through overconfidence ([Chen et al., 2025](https://arxiv.org/abs/2502.07154)); and checkpoints that keep more diversity, or that are fine-tuned less aggressively, make better starting points for reinforcement learning (RL) ([Dang et al., 2025](https://arxiv.org/abs/2504.10478); [clipping low-probability tokens in SFT, ICML 2026](https://icml.cc/virtual/2026/poster/61171)). Our runs are consistent with this: from 3 to 10 epochs, Terminal-Bench 2.0 pass@1 rose from 9.8% to 11.8% while pass@8 fell from 33.3% to 31.8%.
+**Most of the gradient goes to tokens that are already learned.** Plateau Dropping's own bookkeeping (Section 2) measures this directly: the moment it starts judging tokens, at step 192 of a run on the SWE data, half of the training tokens already have a loss that has stopped moving, at an average loss of 0.21; by the end of a 20-epoch run that is two thirds of the tokens, at an average loss of 0.05, while the tokens still being learned sit at 0.43 (Figure 1b). Plain SFT averages its loss over all of them, so the tokens that are already right dilute every update.
 
-**TailSFT** ([Malladi et al., 2026](https://arxiv.org/abs/2608.25756)) targets this issue. It drops training sequences the model already fits, judged by how far each sequence's loss has fallen below the base model's, so that learning concentrates on the under-modelled tail. On OLMo-3 7B it reports up to 17 points of pass@16 on math and coding, and up to 4 points of pass@1 after RL.
+**Sequence-level filtering: TailSFT.** TailSFT ([Malladi et al., 2026](https://arxiv.org/abs/2608.25756)) drops training sequences the model already fits, judged by how far each sequence's loss has fallen below the base model's, so that learning concentrates on the under-modelled tail. On OLMo-3 7B it reports up to 17 points of pass@16 on math and coding, and up to 4 points of pass@1 after RL. On our agent data it does not help (Table 1): per-trajectory TailSFT for 3 nominal epochs, dropping half of each batch's trajectories with the drop share ramped up over the run, is level with plain SFT at pass@1 on SWE-bench Verified and Terminal-Bench 2.0 and 5 points below it on TB-Lite, and no better than plain SFT at pass@8 on either terminal benchmark.
 
-**TailSFT did not work on our agent data.** We ran it per trajectory, as published, and with two agent-specific variants: per step (reasoning plus its command) and per span (reasoning and command scored separately). Each variant dropped 50% of its units per batch and trained for 3 epochs.
+**Table 1.** TailSFT against plain SFT at 3 nominal epochs (66 steps on the terminal data, 228 on the SWE data), pass@1 and pass@8 in %, averaged over 8 seeds. The last column is the paired difference, TailSFT minus SFT, with its standard error over tasks. Task counts (pass@1 / pass@8): Terminal-Bench 2.0 88 / 65; TB-Lite 97 / 80; SWE-bench Verified 100 / 94. The two agent-specific variants of the earlier draft (per agent step, per span) and the full-drop-share-from-step-5 variant are being re-evaluated.
 
-**Table 1.** TailSFT and its agent extensions, pass@k in %. All runs train for 3 epochs (66 steps on the terminal data, 228 on the SWE data). Terminal-Bench 2.0 uses 89 tasks at pass@1, 87 at pass@3 and 83 at pass@8; TB-Lite uses 99, 98 and 94; SWE-bench Verified uses all 100 tasks, with 8 seeds for every model shown. pass@8 needs 8 seeds, so the 3-seed variants have none. "–": not run.
+| benchmark | model | pass@1 | pass@8 | TailSFT − SFT at pass@1 / pass@8 |
+|---|---|---|---|---|
+| SWE-bench Verified | SFT | 23.4 | 58.3 | |
+| SWE-bench Verified | TailSFT, per trajectory | 24.3 | [pending] | +0.9 (1.7) / – [provisional, 710 of 800 trials] |
+| Terminal-Bench 2.0 | SFT | 10.2 | 29.2 | |
+| Terminal-Bench 2.0 | TailSFT, per trajectory | 10.1 | 27.7 | −0.1 (1.4) / −1.5 (5.1) |
+| TB-Lite | SFT | 27.3 | 68.8 | |
+| TB-Lite | TailSFT, per trajectory | 22.2 | 62.5 | −5.2 (2.0) / −6.2 (3.7) |
+| terminal benchmarks | TailSFT, per trajectory, full drop share from step 5 | [pending] | [pending] | |
+| terminal benchmarks | TailSFT, per agent step | [pending] | [pending] | |
+| terminal benchmarks | TailSFT, per span (reasoning and command separately) | [pending] | [pending] | |
 
-| model | seeds | TB2 pass@1 | TB2 pass@3 | TB2 pass@8 | TB-Lite pass@1 | TB-Lite pass@3 | TB-Lite pass@8 | SWE pass@1 | SWE pass@3 |
-|---|---|---|---|---|---|---|---|---|---|
-| SFT, 3 epochs | 8 | 9.7 | 20.4 | 33.7 | 21.6 | 39.0 | 55.3 | 21.4 | 37.4 |
-| TailSFT, per trajectory (drop share ramped up over the run) | 8 | 10.4 | 19.4 | 30.1 | 22.1 | 39.4 | 57.4 | 20.6 | 36.9 |
-| TailSFT, per trajectory (full drop share from step 5) | 3 | 9.4 | 17.2 | – | 21.7 | 38.8 | – | – | – |
-| TailSFT, per agent step | 3 | 8.6 | 21.8 | – | 22.9 | 40.8 | – | 20.8 | 36.8 |
-| TailSFT, per span (reasoning and command separately) | 3 | 8.2 | 16.1 | – | 20.2 | 42.9 | – | – | – |
-
-None moved pass@1, on the terminal benchmarks or on SWE-bench Verified (20.6% and 20.8% against 21.4% for SFT; the SWE runs used the terminal runs' schedules scaled to 228 steps: the per-trajectory share ramped over the whole run, the per-step share full from step 17). At pass@3, no variant improved on SFT on both benchmarks by more than a couple of points, well within the noise of three seeds, and per-trajectory TailSFT, with 8 seeds, gave no coverage gain either: pass@8 was 30.1% against 33.7% on Terminal-Bench 2.0, and 57.4% against 55.3% on TB-Lite. Scoring reasoning and commands separately did not help either; the two start from very different losses (0.82 against 0.26 on average).
-
-**What the tokens show.** Before training, the model gives a probability above 0.9 to 65% of the training tokens and above 0.99 to 52% (Figure 1, right). For shell commands, 78% are above 0.9. The 2% below 0.01 are mostly ordinary words (such as "Check", "which", "Step"), not identifiers or hashes. This led us to select individual tokens rather than whole sequences, and to judge each token by its own loss history rather than by a snapshot of confidence. We propose *Plateau Dropping*, which does both: it removes a token from the training loss once that token's loss has plateaued. The token stays in its sequence, so its loss is still measured each time the sequence is revisited, and if that loss starts changing again, the token goes back into the training loss.
+Two things about sequence-level filtering do not fit agent data. A trajectory mixes tokens the model has long learned (tool-call syntax, repeated commands) with tokens it has not, so a sequence-level score blurs them; and a snapshot of confidence is a poor guide to what is still being learned, since many easy tokens are still moving while some hard tokens are stuck. This led us to select individual tokens rather than whole sequences, and to judge each token by its own loss history rather than by a snapshot of confidence. We propose *Plateau Dropping*, which does both: it removes a token from the training loss once that token's loss has plateaued. The token stays in its sequence, so its loss is still measured each time the sequence is revisited, and if that loss starts changing again, the token goes back into the training loss.
 
 ## 2. Method
 
 ### 2.1 The plateau test
 
-For each token position, the trainer keeps the token's loss at its last two visits and a visit count. For our 6,301 trajectories this bookkeeping takes about 2 GB of host (CPU) memory in each training process, about 8 GB on a four-GPU node. From the third visit on, if the loss changed by less than 10% between each of the last two visits (relative change, with a floor of 0.05), the token is dropped: its term is removed from the training loss, so it no longer contributes to the parameter update, but it still stays in the input as context for the tokens around it. If its loss moves again, it is trained again. Learned and stuck tokens are treated alike. Everything else is standard SFT, and the loss is averaged over the kept tokens.
+For each token position, the trainer keeps the token's loss at its last two visits and a visit count. For our 6,301 terminal trajectories this bookkeeping takes about 2 GB of host (CPU) memory in each training process, about 8 GB on a four-GPU node. From the third visit on, if the loss changed by less than 10% between each of the last two visits (relative change, with a floor of 0.05), the token is dropped: its term is removed from the training loss, so it no longer contributes to the parameter update, but it still stays in the input as context for the tokens around it. If its loss moves again, it is trained again. Learned and stuck tokens are treated alike. Everything else is standard SFT, and the loss is averaged over the kept tokens.
 
 Formally, let $$\ell_i^{(v)}$$ be the loss of token $$i$$ at its $$v$$-th visit, and $$w_i \in \{0, 1\}$$ its SFT weight (1 for the agent's own tokens, 0 for prompts and tool outputs). With the relative change
 
@@ -64,38 +65,22 @@ $$
 \mathcal{L}_{\mathrm{PD}} = \frac{\sum_i w_i \, \big(1 - P_i\big) \, \ell_i}{\sum_i w_i \, \big(1 - P_i\big)},
 $$
 
-where $$P_i$$ is treated as a constant, so no gradient flows through the selection. We use $$\tau = 0.1$$ and $$\varepsilon = 0.05$$. Plain SFT is the special case $$P_i = 0$$ for every token. The history is updated at every visit, including for dropped tokens, so a dropped token whose loss moves again is trained again at its next visit (Figure 2).
-
-![Figure 2](/assets/img/blog/plateau-dropping/fig2_method.png)
-
-Figure 2. Plateau Dropping on real tokens, from a traced 10-epoch run. (a) The token "maybe" in "…<code>curl -sI $ENDPOINT &#124; head -5</code> maybe. But we risk…" (training step of each visit in brackets): it is trained while its loss falls; at its 4th and 5th visits both of the last two relative changes are below 10%, so it is dropped (hollow), while still being read as context and having its loss measured; at its 6th visit its loss moves by 14% and it is trained again. (b) Fourteen consecutive reasoning tokens at step 140: plateaued tokens (white) are left out of the average, so the loss over this stretch is 0.68, against 0.35 for the plain SFT average over all of them.
-{: .caption}
+where $$P_i$$ is treated as a constant, so no gradient flows through the selection. We use $$\tau = 0.1$$ and $$\varepsilon = 0.05$$. Plain SFT is the special case $$P_i = 0$$ for every token. The history is updated at every visit, including for dropped tokens, so a dropped token whose loss moves again is trained again at its next visit.
 
 ### 2.2 What gets dropped
 
-Once tokens have three visits, about 60% of each batch is dropped: roughly 55% learned (loss below about 0.1) and 5% stuck at higher loss. The kept tokens have a loss near 0.8. The tokens dropped at any given step have a loss near 0.2 (Figure 3), and the loss over all tokens tracks plain SFT. The dropped set changes over time as tokens re-enter, so this does not show that a fixed set of tokens stays learned.
+A token can only be dropped from its third visit, so nothing is dropped until every row has been seen twice: on the SWE data that is step 192 of a run, and until then a Plateau Dropping run is plain SFT (with the same data order, the two runs' losses agree step by step to within 0.001). Dropping then starts abruptly (Figure 1b): the kept fraction falls to 51% by step 227, 38% by step 759 and 32% by step 1,519. Of the dropped tokens, 93 to 97% are dropped as learned, with a loss that falls from 0.21 when dropping starts to 0.05 at the end of the 20-epoch run, and 2 to 5% as stuck at a higher loss. The tokens still trained have a loss of 0.74 at step 228, 0.62 at 760 and 0.43 at 1,520, while the loss over all tokens is 0.48, 0.35 and 0.18; because the training loss is now an average over the harder half of the tokens, it sits well above plain SFT's even though the loss over all tokens tracks plain SFT to within 0.02. On the terminal data, whose rows are shorter and revisited more often, the kept fraction falls further, to about 15% by step 440. The dropped set changes over time as tokens re-enter, so none of this shows that a fixed set of tokens stays learned.
 
-![Figure 3](/assets/img/blog/plateau-dropping/fig2_not_forgotten.png)
-
-Figure 3. Training loss over 220 steps (training curves; no evaluation seeds). Red: plain SFT, over all tokens. Green: Plateau Dropping, over all tokens (medium), tokens still trained (dark) and dropped tokens, which are excluded from the training loss (light, dashed). The red curve and the medium-green curve overlap: both runs start from the same model and see the same batches in the same order, so they are identical until dropping starts around step 30, and afterwards the Plateau Dropping curve sits only 0.002 to 0.005 higher, far less than the step-to-step variation between batches.
-{: .caption}
-
-Our data loader samples rows with replacement, so epochs are nominal: one full pass is about 25.6 steps, and 66, 220 and 440 steps are about 2.6, 8.6 and 17.2 passes, with irregular gaps between visits. The plateau test counts visits, not epochs.
-
-**Which tokens get dropped.** We traced every trained token of 300 randomly chosen trajectories through a 10-epoch run of each method, with the same data order, and grouped the tokens by how well the model predicted them at their first visit (Figure 4). The easy tokens, two thirds of the total, are almost all dropped as learned (87%). Medium and hard tokens are mostly kept, and on them Plateau Dropping brings the loss down further than plain SFT: by the ninth visit it falls 24% on medium tokens against 13% for plain SFT, and 15% against 12% on hard tokens. On the 7% of very hard tokens, 40% end up dropped as stuck, and their loss stays higher than under plain SFT (down 4% against 10%). Shell commands and their tool-call syntax are mostly learned and dropped (78%); 80% of the stuck tokens are in the free-form reasoning, mostly common words such as "the" and "and".
-
-![Figure 4](/assets/img/blog/plateau-dropping/fig_token_analysis.png)
-
-Figure 4. Token-level trace of 300 training trajectories over 10-epoch runs (training tokens, one run per method). (a) Where tokens end up under Plateau Dropping at the end of training, by the probability the model gave them at their first visit. (b) Change in loss since the first visit on the same tokens, for plain SFT (red) and Plateau Dropping (green): medium (solid), hard (dashed) and very hard (dotted) tokens.
-{: .caption}
+Our packer fills fixed-length rows (64k tokens on the SWE data, 32k on the terminal data) with whole trajectories, which leaves about 26% of each SWE row and 12% of each terminal row as padding, and the data loader samples rows with replacement. So "epochs" throughout this post are nominal token counts: one real pass over the SWE data is 103 steps, so 228, 760 and 1,520 steps ("3, 10 and 20 epochs") are 2.2, 7.4 and 14.8 passes; one pass over the terminal data is about 29 steps, so 66, 220 and 440 steps are 2.3, 7.6 and 15.2 passes. The plateau test counts visits, not epochs.
 
 ### 2.3 Setup
 
-- **Model.** A 67B mixture-of-experts model with about 2B parameters active per token: [open-athena/Grug-67B-A2B-Datakit-SFT-262K-2026.09.21](https://huggingface.co/open-athena/Grug-67B-A2B-Datakit-SFT-262K-2026.09.21). Section 3.4 also uses a stronger checkpoint of the same model: [open-athena/Grug-67B-A2B-Antidoom-RLVR1-Step12-2026.10.02](https://huggingface.co/open-athena/Grug-67B-A2B-Antidoom-RLVR1-Step12-2026.10.02).
-- **Terminal data.** 6,301 successful trajectories (45M tokens, 1,610 tasks): 5,324 from the public [allenai/tmax-sft](https://huggingface.co/datasets/allenai/tmax-sft) dataset, written by a 27B teacher, and 977 of the base model's own successes on synthetic terminal tasks. Context 32k, learning rate 1e-4.
+- **Model.** A 67B mixture-of-experts model with about 2B parameters active per token: [open-athena/Grug-67B-A2B-Datakit-SFT-262K-2026.09.21](https://huggingface.co/open-athena/Grug-67B-A2B-Datakit-SFT-262K-2026.09.21).
+- **Terminal data.** 6,301 successful trajectories (45M tokens, 1,610 tasks): 5,324 from the public [allenai/tmax-sft](https://huggingface.co/datasets/allenai/tmax-sft) dataset, written by a 27B teacher, and 977 of the base model's own successes on synthetic terminal tasks. Context 32k.
 - **SWE data.** 9,229 resolved trajectories (7,005 tasks) from the public [nvidia/Open-SWE-Traces](https://huggingface.co/datasets/nvidia/Open-SWE-Traces) dataset, restricted to one shell command per step to match our agent (319M tokens). Context 64k.
-- **Compared models.** SFT for 3 epochs (66 steps) and 10 epochs (220), and Plateau Dropping for 10 and 20 epochs (220 and 440). On the SWE data, SFT and Plateau Dropping for 20 epochs (1,520 steps).
-- **Harness.** We use the [mini-swe-agent](https://github.com/SWE-agent/mini-swe-agent) harness everywhere: all training trajectories are in its format, and all evaluations and RL rollouts run in it. At each step the model writes its reasoning and one shell command, then sees the command's output.
+- **Training.** Learning rate 1e-4, cosine schedule over the run with 3% warmup, AdamH, no weight decay, global gradient-norm clipping at 1.0, bf16 compute with fp32 master weights and optimizer state, expert capacity factor 2.0 (no dropped token-to-expert assignments), router biases frozen, 16 nodes of 4 GPUs each. Plain SFT and Plateau Dropping runs of the same length share the data order.
+- **Compared models.** On the terminal data: SFT and Plateau Dropping for 3, 10 and 20 nominal epochs (66, 220 and 440 steps), and TailSFT for 3. On the SWE data: SFT and Plateau Dropping for 3 and 20 nominal epochs (228 and 1,520 steps), evaluated at the end and, for the 20-epoch runs, at their mid-schedule checkpoint (step 760), TailSFT for 3, and dedicated 10-epoch runs (760 steps with their own schedule) that are being evaluated.
+- **Harness.** We use the [mini-swe-agent](https://github.com/SWE-agent/mini-swe-agent) harness everywhere: all training trajectories are in its format, and all evaluations run in it. At each step the model writes its reasoning and one shell command, then sees the command's output.
 
 **Our data in context.** By the standards of public agentic SFT data, our datasets are small to mid-sized (Table 2). In trajectory count they are close to the sets several SWE agents were fine-tuned on (SWE-smith, R2E-Gym, SWE-Dev) and to the terminal set we draw from, and one to two orders of magnitude below the largest public releases (Open-SWE-Traces, Nemotron-Terminal-Corpus). None of the public releases reports a total token count.
 
@@ -115,137 +100,96 @@ Figure 4. Token-level trace of 300 training trajectories over 10-epoch runs (tra
 | **ours, terminal data** | terminal | 1,610 | 6,301 | 45M (28M trained) |
 | **ours, SWE data** | SWE | 7,005 | 9,229 | 319M |
 
-
 ### 2.4 Evaluation
 
-We use all 89 tasks of Terminal-Bench 2.0, TB-Lite (100 command-line tasks), and a fixed random 100 tasks of SWE-bench Verified. Every model runs in mini-swe-agent at temperature 1, with three times the default time limit. Each seed is one independent attempt at every task; we use 8 seeds per model, and 3 for the ablations, the RL checkpoints and three of the TailSFT variants (the "seeds" column of each table). A task is solved only with full credit. An attempt that hits the time limit is scored by the tests on whatever the agent left, so in rare cases (6 of about 400 timed-out attempts) it still counts as solved; infrastructure crashes are discarded. All numbers are averaged over seeds: pass@k is the unbiased estimate from the seeds' attempts, and each column uses the tasks with at least k valid attempts for every model in its comparison. One comparison per benchmark covers Tables 3 to 5; Table 7's rows are matched among their own three models per benchmark, and on TB-Lite the base model of Tables 3 and 4 is scored on its own task set.
+We use Terminal-Bench 2.0 (89 tasks), TB-Lite (100 command-line tasks), and a fixed random 100 tasks of SWE-bench Verified. Every model runs in mini-swe-agent at temperature 1, with three times the default time limit. Each seed is one independent attempt at every task, and every model has 8 seeds. A task is solved only with full credit. An attempt that hits the time limit is scored by the tests on whatever the agent left, so in rare cases it still counts as solved; infrastructure crashes are discarded. All numbers are averaged over seeds: pass@k is the unbiased estimate from the seeds' attempts, and each column uses the tasks with at least k valid attempts for every model in its comparison (the task counts are given with each table; four terminal tasks whose sandboxes are no longer available are excluded everywhere). Differences between two models are paired by task, and the standard errors quoted for them come from a bootstrap over tasks.
 
 One change to the SWE-bench Verified grader: before running the tests, the standard Harbor task script deletes every file that git does not track, which also deletes new source files the agent created as part of its fix, so a correct fix that adds a file is graded as a failure. Our test script deletes only the untracked files that the benchmark's own test patch touches, and is otherwise unchanged. Every model in this post is graded the same way, so the comparisons between them are unaffected, but our absolute SWE-bench Verified numbers can be higher than those from the stock Harbor tasks.
 
 ## 3. Results
 
-In all figures, grey is a model without fine-tuning, red is plain SFT (darker red for 10 epochs) and green is Plateau Dropping.
+### 3.1 SWE-bench Verified
 
-### 3.1 Terminal benchmarks
+![Figure 2](/assets/img/blog/plateau-dropping/fig5_swebench_corrected.png)
 
-![Figure 5](/assets/img/blog/plateau-dropping/fig3_tb2.png)
-
-Figure 5. Terminal-Bench 2.0, pass@1, pass@2, pass@4 and pass@8 (%), averaged over 8 seeds.
+Figure 2. SWE-bench Verified (random 100 tasks), pass@1 and pass@8 (%) against training length for plain SFT (red) and Plateau Dropping (green), averaged over 8 seeds; dashed: the base model. Each panel uses the tasks with at least k valid attempts for every model shown (100 at pass@1, 88 at pass@8). The 10-epoch point is the mid-schedule checkpoint of the 20-epoch runs until the dedicated 10-epoch runs are evaluated.
 {: .caption}
 
-![Figure 6](/assets/img/blog/plateau-dropping/fig4_tblite.png)
+**Table 3.** SWE-bench Verified, pass@1 and pass@8 in %, averaged over 8 seeds, all 100 tasks at pass@1 (pass@8: the number of tasks with 8 valid attempts for both models of a pair, in brackets). The last column is the paired difference, Plateau Dropping minus SFT, with its standard error over tasks.
 
-Figure 6. TB-Lite, pass@1, pass@2, pass@4 and pass@8 (%), averaged over 8 seeds. The base model is scored on its own task set (98 tasks, 92 at pass@8), not matched to the fine-tuned models.
+| training length | model | pass@1 | pass@8 | PD − SFT at pass@1 / pass@8 |
+|---|---|---|---|---|
+| none | base model | 19.3 | 47.7 | |
+| 3 epochs (228 steps) | + SFT | 23.4 | 58.3 (94) | |
+| 3 epochs (228 steps) | + Plateau Dropping | **31.9** | **67.0** (94) | +8.4 (2.1) / +9.6 (4.6) |
+| step 760 of the 20-epoch runs | + SFT | 45.0 | 72.7 (99) | |
+| step 760 of the 20-epoch runs | + Plateau Dropping | **47.1** | **74.0** (99) | +2.1 (1.7) / +2.0 (2.9) |
+| 10 epochs (760 steps, own schedule) | + SFT | [pending] | [pending] | |
+| 10 epochs (760 steps, own schedule) | + Plateau Dropping | [pending] | [pending] | [pending] |
+| 20 epochs (1,520 steps) | + SFT | 44.9 | **74.7** (98) | |
+| 20 epochs (1,520 steps) | + Plateau Dropping | **45.8** | 72.7 (98) | +0.8 (1.7) / −3.1 (3.0) |
+
+Three things stand out. First, plain SFT on this data is strong: 20 nominal epochs take the base model from 19.3% to 44.9% pass@1 and from 47.7% to 74.7% pass@8, and the loss keeps falling throughout (Figure 1). Second, at a small training budget Plateau Dropping is far ahead: after 3 nominal epochs (2.2 real passes) it is 8.4 points above plain SFT at pass@1, four standard errors, and 9.6 points above it at pass@8. The two runs are identical until step 192, so the whole difference comes from the last 36 steps of the run, during which Plateau Dropping trains on the half of the tokens whose loss is still moving. Third, with more passes the gap closes, and the way it closes is sharpening on Plateau Dropping's side: at the mid-schedule checkpoint (10 nominal epochs) it is about 2 points ahead at both pass@1 and pass@8 (about one standard error); from there to 20 epochs its pass@1 stays within noise (47.1% to 45.8%, −1.4 ± 1.6 paired) while its pass@8 falls (74.7% to 72.7%, −2.0 ± 1.4), whereas plain SFT's pass@1 is unchanged (45.0% to 44.9%) and its pass@8 keeps rising (72.4% to 74.5%, +2.0 ± 2.8). The two curves cross at pass@8 and end level at pass@1, with no coverage advantage for Plateau Dropping at 20 epochs (72.7% against 74.7%). TailSFT at 3 epochs lands with plain SFT (Table 1). The dedicated 10-epoch runs, and the clipping ablation of Section 3.3, are being evaluated.
+
+**Why it helps at 3 epochs.** We parsed the evaluation trajectories of the 3-epoch and 20-epoch models (Table 4; 3-epoch rows: about 470 attempts per model on the 65 tasks finished at the time of the analysis; 20-epoch rows: about 500 attempts per model). At 3 epochs the plain-SFT agent is still half-trained as an agent: it writes 55% longer reasoning per step, so it fits fewer steps before running out of context; it breaks the tool-call format often enough that 1 attempt in 9 ends on three malformed calls in a row; it runs the repository's tests half as often, rarely after its last edit; and it submits a third less often. The Plateau Dropping agent at the same step count already looks like the 20-epoch models on every one of these measures, and its gain splits between better fix quality (pass given every reference file edited: 44.5% against 35.2%) and slightly better localisation (75.5% against 67.6% of attempts edit every reference file). By 20 epochs plain SFT has learned the same things from repetition and the two agents behave alike. These are correlations from one analysis of the evaluation trajectories, not a causal test.
+
+**Table 4.** Behaviour of the evaluation attempts on SWE-bench Verified (per attempt; "gold files" are the files the reference fix edits).
+
+| | SFT, 3 epochs | Plateau Dropping, 3 epochs | SFT, 20 epochs | Plateau Dropping, 20 epochs |
+|---|---|---|---|---|
+| pass rate on these attempts, % | 24.4 | 34.0 | 45.5 | 45.5 |
+| attempt ends by submitting, % | 20.9 | 34.9 | 54.3 | 54.7 |
+| attempt ends on 3 consecutive malformed tool calls, % | 11.5 | 0.9 | 1.3 | 1.8 |
+| attempt ends by running out of context, % | 67.2 | 63.4 | 44.3 | 43.5 |
+| malformed tool calls per attempt | 1.9 | 0.6 | 1.0 | 0.9 |
+| reasoning characters per step | 3,180 | 2,040 | 2,340 | 2,210 |
+| steps per attempt (median) | 171 | 205 | 144 | 147 |
+| test runs per attempt | 8.5 | 14.9 | 15.0 | 15.8 |
+| ran tests after its last edit, % | 18.0 | 32.6 | 44.5 | 45.9 |
+| edited every gold file, % | 67.6 | 75.5 | 78.8 | 79.8 |
+| pass given every gold file edited, % | 35.2 | 44.5 | 55.5 | 55.6 |
+
+### 3.2 Terminal benchmarks
+
+![Figure 3](/assets/img/blog/plateau-dropping/fig3_tb2_corrected.png)
+
+Figure 3. Terminal-Bench 2.0, pass@1 and pass@8 (%) against training length (66, 220 and 440 steps) for plain SFT (red) and Plateau Dropping (green), averaged over 8 seeds; dashed: the base model (5 seeds, so no pass@8 line). Each panel uses the tasks with at least k valid attempts for every model shown (88 at pass@1, 72 at pass@8).
 {: .caption}
 
-**Table 3.** Terminal-Bench 2.0, pass@k in % (88, 88, 88 and 66 tasks per column).
+![Figure 4](/assets/img/blog/plateau-dropping/fig4_tblite_corrected.png)
 
-| model | seeds | pass@1 | pass@2 | pass@4 | pass@8 |
-|---|---|---|---|---|---|
-| base model | 8 | 8.8 | 14.2 | 20.7 | 30.3 |
-| + SFT, 3 epochs | 8 | 9.8 | 15.8 | 23.6 | 33.3 |
-| + SFT, 10 epochs | 8 | 11.8 | 17.4 | 23.4 | 31.8 |
-| + Plateau Dropping, 10 epochs | 8 | 11.7 | 18.7 | 26.1 | 33.3 |
-| + Plateau Dropping, 20 epochs | 8 | **14.1** | **20.4** | **26.7** | 31.8 |
-
-**Table 4.** TB-Lite, pass@k in % (98, 98, 98 and 90 tasks per column).
-
-| model | seeds | pass@1 | pass@2 | pass@4 | pass@8 |
-|---|---|---|---|---|---|
-| base model (own task set: 98, 98, 98 and 92 tasks) | 8 | 16.6 | 26.4 | 38.5 | 52.2 |
-| + SFT, 3 epochs | 8 | 21.8 | 32.9 | 44.1 | 54.4 |
-| + SFT, 10 epochs | 8 | 21.4 | 32.0 | 43.0 | 55.6 |
-| + Plateau Dropping, 10 epochs | 8 | 24.1 | 35.3 | 47.4 | **60.0** |
-| + Plateau Dropping, 20 epochs | 8 | **26.6** | **38.8** | **49.6** | 57.8 |
-
-At 20 epochs, Plateau Dropping achieves the highest pass@1 on both benchmarks: 14.1% on Terminal-Bench 2.0 and 26.6% on TB-Lite, 4.3 and 4.8 points above 3-epoch SFT. Against 10-epoch SFT (220 steps), it is 5.2 points ahead on TB-Lite. At exactly matched steps (220), Plateau Dropping is level with SFT on Terminal-Bench 2.0 (11.7% against 11.8%) and ahead on TB-Lite (24.1% against 21.4%). The gain is largest at pass@1 and pass@2 and narrows by pass@8.
-
-### 3.2 SWE-bench Verified
-
-![Figure 7](/assets/img/blog/plateau-dropping/fig5_swebench.png)
-
-Figure 7. SWE-bench Verified (random 100 tasks), pass@1, pass@2, pass@4 and pass@8 (%), averaged over 8 seeds. Both fine-tuned models trained for 20 epochs on the SWE data.
+Figure 4. TB-Lite, pass@1 and pass@8 (%) against training length (66, 220 and 440 steps) for plain SFT (red) and Plateau Dropping (green), averaged over 8 seeds; dashed: the base model. Each panel uses the tasks with at least k valid attempts for every model shown (97 at pass@1, 79 at pass@8).
 {: .caption}
 
-**Table 5.** SWE-bench Verified, pass@k in %. pass@1, pass@2 and pass@4 use all 100 tasks; pass@8 uses the 86 tasks of the original comparison ("–": too few tasks with 8 valid attempts for every model of this table). Data order 2 repeats the same training with the training data sampled in a different order.
+**Table 5.** TB-Lite, pass@1 and pass@8 in %, averaged over 8 seeds, matched task set across the fine-tuned models (97 tasks at pass@1, 80 at pass@8; the base model is scored on its own task set). The last column is the paired difference, Plateau Dropping minus SFT, with its standard error over tasks.
 
-| model | seeds | pass@1 | pass@2 | pass@4 | pass@8 |
-|---|---|---|---|---|---|
-| base model | 8 | 19.3 | 28.0 | 37.7 | 47.7 |
-| + SFT, 3 epochs | 8 | 21.4 | 31.5 | 41.4 | – |
-| + SFT, 3 epochs, data order 2 | 8 | 19.4 | 28.9 | 38.9 | – |
-| + SFT, 20 epochs | 8 | 19.5 | 28.6 | 37.4 | 47.7 |
-| + Plateau Dropping, 20 epochs | 8 | 31.1 | 41.7 | 51.6 | **61.6** |
-| + Plateau Dropping, 20 epochs, data order 2 | 8 | **31.7** | **43.5** | **54.1** | – |
+| training length | model | pass@1 | pass@8 | PD − SFT at pass@1 / pass@8 |
+|---|---|---|---|---|
+| none | base model (own task set) | 16.6 | 52.2 | |
+| 3 epochs (66 steps) | + SFT | 27.3 | 68.8 | |
+| 3 epochs (66 steps) | + Plateau Dropping | 25.5 | 62.5 | −1.8 (1.9) / −6.2 (4.5) |
+| 10 epochs (220 steps) | + SFT | 34.0 | 70.0 | |
+| 10 epochs (220 steps) | + Plateau Dropping | **38.9** | **76.2** | +4.9 (1.7) / +6.2 (3.3) |
+| 20 epochs (440 steps) | + SFT | 33.2 | 73.8 | |
+| 20 epochs (440 steps) | + Plateau Dropping | 30.3 | 71.2 | −3.0 (1.7) / −2.5 (3.1) |
 
-Plain SFT barely moves the base model at either length: 21.4% and 19.4% pass@1 after 3 epochs (two data orders) and 19.5% after 20. Plateau Dropping on the same data reaches 31.1% and 31.7% in the two data orders, about 10 points above plain SFT at its best length (+9.8 and +10.3 points over 3-epoch SFT with data order 1, paired standard errors 1.7 and 1.9), and adds about 14 points at pass@8 over the base. TailSFT on the SWE data lands with plain SFT as well (Table 1). All models produce well-formed tool calls (fewer than 2% of steps without one), and 40 epochs of Plateau Dropping did not improve on 20.
+**Table 6.** Terminal-Bench 2.0, pass@1 and pass@8 in %, averaged over 8 seeds, matched task set across the fine-tuned models (88 tasks at pass@1, 65 at pass@8). The last column is the paired difference, Plateau Dropping minus SFT, with its standard error over tasks.
 
-**Why it helps on SWE-bench.** We compared the agent trajectories of the two Plateau Dropping runs with those of 3-epoch SFT (both data orders) and the base model, about 800 attempts each. Plateau Dropping does not win by submitting more often (39 to 42% of its attempts end in a submission, against 33 to 39%), but by fixing correctly once it has found the right place: among attempts that edit every file the reference fix edits, 42 to 44% pass, against 28 to 33% for 3-epoch SFT. Alongside this, its reasoning per step is short and stays short (about 1.6 thousand characters, against 2.7 thousand for SFT, whose reasoning grows about threefold over a long attempt), so it fits more steps into the same context (a median of about 245 steps per attempt, against 170 to 185), and it spends them on checking: it runs the repository's tests about 2.4 times as often (19 to 20 runs per attempt against 8) and more often after its last edit (40 to 42% of attempts against 28%). These are correlations from one analysis of the evaluation trajectories, not a causal test. Plateau Dropping also has a failure mode of its own: 5% of its commands repeat the previous command exactly, against 0.4% for SFT.
+| training length | model | pass@1 | pass@8 | PD − SFT at pass@1 / pass@8 |
+|---|---|---|---|---|
+| none | base model | 8.8 | 30.3 | |
+| 3 epochs (66 steps) | + SFT | 10.2 | 29.2 | |
+| 3 epochs (66 steps) | + Plateau Dropping | 12.5 | 32.3 | +2.3 (1.4) / +3.1 (4.4) |
+| 10 epochs (220 steps) | + SFT | 16.9 | 36.9 | |
+| 10 epochs (220 steps) | + Plateau Dropping | **18.7** | **40.0** | +1.8 (1.5) / +3.1 (3.8) |
+| 20 epochs (440 steps) | + SFT | 14.5 | 33.8 | |
+| 20 epochs (440 steps) | + Plateau Dropping | 15.1 | 32.3 | +0.6 (1.4) / −1.5 (4.1) |
 
-### 3.3 Ablations
+The terminal benchmarks show the same shape as SWE-bench Verified, shifted to a somewhat later budget. At 66 steps (2.3 passes) nothing separates the two arms: Plateau Dropping is slightly ahead on Terminal-Bench 2.0 and behind on TB-Lite, both within about two standard errors, and at that length it has only been dropping tokens for the last few steps. At 220 steps it is ahead on both benchmarks: +4.9 points of pass@1 on TB-Lite (2.9 standard errors) and +6.2 at pass@8, and +1.8 at pass@1 and +3.1 at pass@8 on Terminal-Bench 2.0. At 440 steps the picture reverses, and again it is Plateau Dropping that sharpens: its pass@1 falls below its own 220-step result (TB-Lite 38.9% to 30.3%, a paired drop of 8.6 ± 1.9; Terminal-Bench 2.0 18.7% to 15.1%, −3.7 ± 1.3) and so does its pass@8 (TB-Lite −6.6 ± 4.1, Terminal-Bench 2.0 −2.4 ± 4.2), while plain SFT holds at pass@1 (TB-Lite 34.0% to 33.2%; Terminal-Bench 2.0 16.9% to 14.5%, −2.4 ± 1.4) and its pass@8 rises on TB-Lite (+3.3 ± 3.9) though it falls on Terminal-Bench 2.0 (−6.0 ± 3.2). Section 3.3 describes one mechanism that could produce the Plateau Dropping decline. Taken together with the SWE results (+8.4 at 228 steps, +2 at 760, level at 1,520), Plateau Dropping's advantage is largest in the short-to-mid training range; with long training it fades on the SWE data and reverses on the terminal data, in both cases through a loss of coverage (pass@8) at roughly constant pass@1.
 
-The ablations in Table 6 use the terminal data and 3 seeds. We test whether it matters which tokens are dropped, or only how many. Random dropping removes a random 65% of tokens. Confidence dropping removes every token the model already predicts with probability above 0.9, the snapshot-of-confidence approach that Section 1 argues against. Neither has a built-in start point, so both start at step 65, when Plateau Dropping's drop share has levelled off at about 60%, and all three train for 220 steps. Plateau Dropping itself can only drop a token from its third visit on, so its dropping begins around step 30.
+### 3.3 Open question: gradient clipping
 
-![Figure 8](/assets/img/blog/plateau-dropping/fig6_ablations.png)
-
-Figure 8. pass@1 (%) for each variant, averaged over 3 seeds. The dashed line marks 3-epoch SFT.
-{: .caption}
-
-**Table 6.** Ablations, pass@k in % (Terminal-Bench 2.0: 88 tasks at pass@1, 74 at pass@3; TB-Lite: 98 and 85).
-
-| model | seeds | TB2 pass@1 | TB2 pass@3 | TB-Lite pass@1 | TB-Lite pass@3 |
-|---|---|---|---|---|---|
-| + SFT, 3 epochs | 3 | 9.1 | 17.6 | 22.8 | 42.4 |
-| + SFT, 10 epochs | 3 | 11.7 | 23.0 | 22.1 | 47.1 |
-| random drop of 65% of tokens | 3 | 11.7 | 25.7 | 22.8 | 45.9 |
-| confidence drop (p > 0.9) | 3 | 7.8 | 16.2 | 13.6 | 29.4 |
-| + Plateau Dropping, 10 epochs | 3 | 12.3 | 21.6 | 26.9 | 50.6 |
-| + Plateau Dropping, 20 epochs | 3 | 15.5 | 27.0 | 26.9 | 50.6 |
-| smoothed-history variant, 20 epochs | 3 | 15.5 | 28.4 | 23.1 | 42.4 |
-| + Plateau Dropping, 40 epochs | 3 | 14.4 | 33.8 | 27.6 | 50.6 |
-
-- **Random dropping** of 65% of tokens from step 65 matches SFT with the same steps. Since it also starts dropping later than Plateau Dropping, this does not fully separate which tokens are dropped from when dropping starts.
-- **Confidence dropping** of every token above probability 0.9 is the worst variant.
-- **A smoothed plateau test** (moving-average loss history) keeps the Terminal-Bench 2.0 gain but loses TB-Lite.
-- **40 epochs** matches 20.
-
-On the SWE data we also tested two changes to the rule itself, each a single 20-epoch training run evaluated with 8 seeds. Letting a dropped token back in only when its loss rises (instead of on any change) gives 28.5% pass@1, and keeping dropped tokens at a quarter of their weight instead of removing them also gives 28.5%; both are 2.6 points below the rule as described (31.1%, paired standard error 1.9). The gap widens at larger k for the down-weighted variant (45.9% against 51.6% at pass@4). Neither change helps, and removing plateaued tokens completely works at least as well as keeping part of their signal.
-
-### 3.4 A stronger starting model
-
-We repeated the 20-epoch runs from a stronger checkpoint of the same model, which already achieves a pass@1 of 11.9% on Terminal-Bench 2.0, 24.2% on TB-Lite and 33.7% on SWE-bench Verified. On the terminal data we also trained plain SFT for the same 20 epochs as a control.
-
-**Table 7.** Stronger starting model, pass@k in %. Terminal benchmarks: matched across the three models shown (Terminal-Bench 2.0: 88, 88, 88 and 87 tasks; TB-Lite: 98, 98, 98 and 93). SWE-bench Verified: matched across the three models shown (100, 100, 100 and 89 tasks).
-
-| benchmark | model | seeds | pass@1 | pass@2 | pass@4 | pass@8 |
-|---|---|---|---|---|---|---|
-| Terminal-Bench 2.0 | stronger base | 8 | 11.9 | 18.1 | 25.2 | 33.3 |
-| Terminal-Bench 2.0 | + SFT, 20 epochs | 8 | 11.5 | 18.4 | 26.4 | **35.6** |
-| Terminal-Bench 2.0 | + Plateau Dropping, 20 epochs | 8 | **15.3** | **22.5** | **29.4** | **35.6** |
-| TB-Lite | stronger base | 8 | 24.2 | 35.8 | 47.5 | 59.1 |
-| TB-Lite | + SFT, 20 epochs | 8 | **27.3** | **39.8** | 52.3 | **66.7** |
-| TB-Lite | + Plateau Dropping, 20 epochs | 8 | 26.9 | 39.4 | **52.5** | 65.6 |
-| SWE-bench Verified | stronger base | 8 | **33.7** | 43.6 | 51.7 | 57.3 |
-| SWE-bench Verified | + SFT, 20 epochs | 8 | 21.1 | 32.5 | 45.0 | 59.6 |
-| SWE-bench Verified | + Plateau Dropping, 20 epochs | 8 | 32.8 | **44.2** | **54.5** | **62.9** |
-
-On Terminal-Bench 2.0, Plateau Dropping raises pass@1 from 11.9% to 15.3%, while plain SFT for the same 20 epochs leaves it at 11.5%; at pass@8 the two fine-tuned models are level (35.6%). On TB-Lite both raise pass@1, to 26.9% with Plateau Dropping and 27.3% with plain SFT, and both raise pass@8 by about 7 points. On SWE-bench Verified neither fine-tuned model improves on the base's pass@1, but they differ sharply: 20 epochs of plain SFT drop it from 33.7% to 21.1%, while Plateau Dropping over the same 20 epochs keeps it (32.8%) and raises pass@8 from 57.3% to 62.9% (plain SFT: 59.6%).
-
-### 3.5 RL after fine-tuning
-
-We ran the same RL recipe on terminal tasks from 3-epoch SFT and from 20-epoch Plateau Dropping. The second run is still in progress.
-
-**Table 8.** RL from each fine-tuned model, pass@k in % (Terminal-Bench 2.0: 88 tasks at pass@1, 82 at pass@3; TB-Lite: 98 and 93).
-
-| model | seeds | TB2 pass@1 | TB2 pass@3 | TB-Lite pass@1 | TB-Lite pass@3 |
-|---|---|---|---|---|---|
-| SFT, 3 epochs | 3 | 9.1 | 18.3 | 22.8 | 38.7 |
-| + RL, step 25 | 3 | 13.6 | 25.6 | 25.9 | 43.0 |
-| + RL, step 107 (its best) | 3 | 15.5 | 28.0 | 26.5 | 47.3 |
-| Plateau Dropping, 20 epochs | 3 | 15.5 | 28.0 | 26.9 | 45.2 |
-| + RL, step 21 | 3 | **18.2** | **32.9** | **29.3** | **48.4** |
-
-Plateau Dropping alone matches the best RL checkpoint from SFT (step 107), which makes it a better starting point for RL. After 21 RL steps it is the best model in this study, with a pass@1 of 18.2% on Terminal-Bench 2.0 and 29.3% on TB-Lite.
+An audit of the runs found one systematic difference between the two arms that is not part of the method. Plateau Dropping's loss is a mean over the kept tokens, which are the harder ones, so once dropping starts its gradient norm sits at 1.3 to 2.9 and is clipped at the trainer's global norm of 1.0. On the SWE data that happens on 50% of the steps of the 760-step run and 86% of the steps of the 1,520-step run, against 3 to 4% of plain SFT's steps (median norm 0.5). On the terminal data, where the kept fraction falls to about 15%, every logged step of the second half of the 220- and 440-step Plateau Dropping runs is clipped (82% and 91% of all steps; median second-half norm 1.7 and 2.6), against 0 to 5% for plain SFT (median 0.55). Under Adam a constant rescaling of the gradient mostly cancels, but clipping that varies from step to step does change the updates, so the convergence of the two arms at long training, and the decline of the 440-step terminal run, could be partly a clipping artifact. A 10-epoch Plateau Dropping run on the SWE data with the clip raised to 4.0 (so that none of its steps is clipped) has been trained; its training loss is indistinguishable from the clipped run's (0.347 against 0.346 over all tokens at the end), and its evaluation is [pending]. The same ablation on the terminal data has not been run.
 
 ## 4. Related work
 
@@ -255,13 +199,32 @@ Plateau Dropping alone matches the best RL checkpoint from SFT (step 107), which
 
 **Training dynamics.** Forgetting events ([Toneva et al., 2019](https://arxiv.org/abs/1812.05159)) and early-training scores ([Paul et al., 2021](https://arxiv.org/abs/2107.07075)) rank examples by how they behave during training. Plateau Dropping does this online, per token, over two passes.
 
-**Down-weighting easy cases.** Focal loss ([Lin et al., 2017](https://arxiv.org/abs/1708.02002)) down-weights well-classified examples. Its hard-threshold, per-token version, dropping tokens above probability 0.9, is our worst ablation (Section 3.3).
+**Down-weighting easy cases.** Focal loss ([Lin et al., 2017](https://arxiv.org/abs/1708.02002)) down-weights well-classified examples. Its hard-threshold, per-token version, dropping every token above a probability threshold, is the snapshot-of-confidence approach that Section 1 argues against.
 
 **Minority tokens in RL.** Updating only the 20% highest-entropy tokens matches full updates in RL for reasoning ([Wang et al., 2025](https://arxiv.org/abs/2506.01939)), and DAPO ([Yu et al., 2025](https://arxiv.org/abs/2503.14476)) discards sample groups that carry no learning signal. Plateau Dropping is an SFT counterpart.
 
 ## 5. Conclusion
 
-Plateau Dropping is a small change to standard SFT. The trainer remembers each token's loss from its last two visits, and once that loss stops changing, the token is removed from the training loss until it changes again. With the same data, this makes longer training pay off. Pass@1 rises by 4 to 5 points over standard 3-epoch SFT on two terminal benchmarks, and by 12 points over SFT with the same number of steps on SWE-bench Verified. Coverage improves as well: pass@8 rises from 47.7% to 61.6% on SWE-bench Verified and from 54.4% to 57.8% on TB-Lite. This carries over to RL. The Plateau Dropping checkpoint on its own matches the best checkpoint of RL started from plain SFT (15.5% pass@1 on Terminal-Bench 2.0), and after only 21 RL steps from it, pass@1 reaches 18.2%, above every evaluated checkpoint of RL from plain SFT.
+Plateau Dropping is a small change to standard SFT. The trainer remembers each token's loss from its last two visits, and once that loss stops changing, the token is removed from the training loss until it changes again. What it buys is speed: it gets the model to the trained agent's behaviour with far fewer passes over the data. After 3 nominal epochs on the SWE data it is 8 to 10 points above plain SFT on SWE-bench Verified (31.9% against 23.4% at pass@1, 67.0% against 58.3% at pass@8), a model that has reached the format, testing and submission habits plain SFT only acquires with many more passes, and at 220 steps on the terminal data it is 4.9 points ahead on TB-Lite and 1.8 on Terminal-Bench 2.0. With more passes the gap closes, and on Plateau Dropping's side it closes by sharpening: from 10 to 20 nominal epochs its pass@1 holds while its pass@8 falls on all three benchmarks, so that after 20 epochs on the SWE data the two are level at pass@1 and pass@8, and on the terminal data the 440-step Plateau Dropping run sits below its own 220-step result while plain SFT holds. Sequence-level filtering (TailSFT) does not help at any budget we tested. Whether gradient clipping, which hits the long Plateau Dropping runs on nearly every step, is what holds them back is being tested, and the next experiments are the clipping ablation on both datasets and the dedicated 10-epoch SWE runs.
+
+## 6. What was wrong in the earlier version of this post
+
+The earlier draft was based on runs on one cluster. When we ported the setup to a second cluster to reproduce it, the Plateau Dropping result came out 4 points lower, and the search for that difference found two bugs in the trainer that had affected every fine-tuning run in the draft, plus two smaller issues. All four are fixed; both clusters now run byte-identical trainer code, and every run in this post passed an audit (no restarts, no non-finite losses, plain and Plateau Dropping losses identical step by step until dropping starts, every exported checkpoint validated against the training checkpoint).
+
+![Figure 5](/assets/img/blog/plateau-dropping/fig_bugs_loss_curves.png)
+
+Figure 5. Left: training loss over all tokens on the SWE data for the earlier draft's runs (dashed and dotted, both clusters, plain SFT and Plateau Dropping in two data orders) and the corrected runs (solid): the earlier runs stay at 0.54 to 0.55 for 1,520 steps; the corrected runs fall to 0.15 to 0.18. Right: the fraction of tokens Plateau Dropping keeps, and the loss of the dropped tokens, in the earlier and the corrected runs.
+{: .caption}
+
+**1. The master weights were bf16.** The script that imported the base checkpoint wrote the weights in bf16, and the trainer kept whatever precision it loaded, so the optimizer applied its fp32 updates to bf16 weights and rounded the result back to bf16 at every step. A bf16 number has an 8-bit mantissa, so any update smaller than about 0.4% of a weight's magnitude rounds to zero, which is most Adam updates at a learning rate of 1e-4. After 1,520 steps, 92 to 95% of the weights were bit-identical to the base model; the training loss stopped at 0.55 (Figure 5) and the models barely changed. The corrected trainer keeps fp32 master weights (the standard mixed-precision recipe: bf16 compute, fp32 weights and optimizer state); in the corrected runs 65% of the weights have changed after 228 steps, 83% after 760 and 89% after 1,520, measured on the bf16 export. Every result in the earlier draft was trained this way: plain SFT, Plateau Dropping, TailSFT and its variants, the ablations, the runs from a stronger starting checkpoint, and the SFT starting points of the RL runs. (The Qwen3-8B experiments we ran alongside used a different trainer and were not affected.)
+
+**2. The mixture of experts dropped token-to-expert assignments.** The model was trained with an expert capacity factor of 1.0, so whenever a batch routed more tokens to an expert than its even share, the excess assignments were dropped. On this data 14 to 19% of assignments were dropped, and the fraction depended on the hardware's rounding (18.6% on the GH200 cluster, 15.5% on the GB200 cluster), which cost 0.067 to 0.082 nats of loss and is what made the two clusters disagree. With the capacity factor raised to 2.0 the overflow is 0.16% at the start of a run and 0 by the end, the two clusters agree to four decimals, and the trainer's loss matches an independent inference implementation to 0.0002.
+
+**3. The TailSFT reference pass zeroed the router bias.** The forward-only scoring pass that produces TailSFT's per-sequence reference losses applied a zero router bias instead of the frozen one from the checkpoint. The effect on the references was small (per-document error with a standard deviation of 0.006 and a rank correlation of 0.998 with the correct references), so the earlier TailSFT verdict stands; the TailSFT runs in Table 1 use references from the fixed pass.
+
+**4. Epochs were overstated.** The earlier draft counted passes from token totals and ignored row padding, so its "10 epochs" on the terminal data were 7.6 real passes and its "20 epochs" on the SWE data were 14.8. This post keeps the nominal names and gives the real pass counts in Section 2.2.
+
+**What this did to the story.** The earlier draft's motivation was a training loss that flattened after one pass (its old Figure 1), and its central result was that plain SFT "barely moves the base model" (19.5% pass@1 on SWE-bench Verified after 20 nominal epochs, against 19.3% for the base) while Plateau Dropping reached 31.1%. Both were the first bug: under the corrected trainer the loss falls throughout and plain SFT reaches 44.9% pass@1 and 74.7% pass@8. We do not have a complete account of why Plateau Dropping still improved under the bug. Its gradients are larger, because its loss is averaged over fewer, harder tokens, which would let more of its updates survive the rounding; but the fraction of weights that moved at all was the same in both arms, so the comparison in the earlier draft was between two models that had barely trained, and its 10-point gap at 20 epochs does not survive the fix: with both arms training properly, the two are level (Table 3). The earlier terminal-benchmark tables came from the same regime. What survives is the short-training advantage, which is larger and better supported than any number in the earlier draft (+8.4 points at pass@1 and +9.6 at pass@8 after 3 epochs on SWE-bench Verified; +4.9 and +6.2 on TB-Lite at 220 steps), and a small edge mid-training on the SWE data. The earlier draft's ablations, its runs from a stronger starting checkpoint, and its comparison of RL started from plain SFT and from Plateau Dropping were all trained under the bugs and are withdrawn until they are rerun (the RL runs themselves were unaffected; their SFT starting points were not). The fixes (fp32 master weights, the capacity-factor setting, the corrected scoring pass, and a gradient-clipping setting for the ablation of Section 3.3) are in our fork of the trainer.
 
 ## References
 
