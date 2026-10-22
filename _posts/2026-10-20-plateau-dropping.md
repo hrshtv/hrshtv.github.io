@@ -1,5 +1,6 @@
 ---
 layout: post
+published: false
 title: "Plateau Dropping: per-token loss-plateau gating for agentic SFT"
 description: "Dropping tokens from the SFT loss once their loss plateaus makes longer fine-tuning pay off for agents, and gives a better starting point for RL."
 authors: Harshit Varma

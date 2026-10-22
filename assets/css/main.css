@@ -215,8 +215,15 @@ i:hover{
   transition: color var(--transition-duration) !important;  
 } 
 
-.fill-page {
-  min-height: 77vh;
+/* Keep the footer at the bottom on short pages */
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.site-content {
+  flex: 1 0 auto;
 }
 
 /* SCROLLBAR */
