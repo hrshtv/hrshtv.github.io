@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Plateau Dropping: a simple SFT change for better post-training starting points"
+title: "Plateau Dropping: a simple SFT change for better agentic post-training"
 description: "Dropping each token from the SFT loss once its loss stops changing; after 10 epochs on SWE-agent data, 48.8% vs 42.2% pass@1 on SWE-bench Verified."
 authors: Harshit Varma
 math: true
@@ -23,9 +23,9 @@ Figure 1. Training loss on the SWE data. (a) Mean training loss per pass over th
 
 **Most training tokens are already learned.** Plateau Dropping's own bookkeeping (Section 2) measures this directly: the moment it starts judging tokens, at step 192 of a run on the SWE data, half of the training tokens already have a loss that has stopped moving, at an average loss of 0.21; by the end of a 20-epoch run that is two thirds of the tokens, at an average loss of 0.05, while the tokens still being learned sit at 0.43 (Figure 1b). Plain SFT averages its loss over all of them, so every update is shared with tokens that are already right.
 
-**Sequence-level filtering: TailSFT.** TailSFT ([Malladi et al., 2026](https://arxiv.org/abs/2608.25756)) drops training sequences the model already fits, judged by how far each sequence's loss has fallen below the base model's, so that learning concentrates on the under-modelled tail. On OLMo-3 7B it reports up to 17 points of pass@16 on math and coding, and up to 4 points of pass@1 after RL. On our agent data it did not help in our first runs, at any budget or in any of four variants (per trajectory, full drop share from the start, per agent step, per span). On SWE-bench Verified the per-trajectory version is level with plain SFT at pass@1 (23.4% against 23.4%) and 7 points below it at pass@8 (51.0% against 58.0%, −7.0 ± 4.3 paired over tasks); on the terminal data it is 5 points below plain SFT at pass@1 on TB-Lite (22.0% against 27.2%) and level on Terminal-Bench 2.0 (9.9% against 10.2%), and 3 to 7 points below at pass@8.
+**Sequence-level filtering: TailSFT.** TailSFT ([Malladi et al., 2026](https://arxiv.org/abs/2608.25756)) drops training sequences the model already fits, judged by how far each sequence's loss has fallen below the base model's, so that learning concentrates on the under-modelled tail. On OLMo-3 7B it reports gains of up to 17 points at pass@16 on math and coding, and up to 4 points of pass@1 after RL; in its own tables the method is a pass@k method, with pass@16 up in 15 of 18 settings and pass@1 up in 9 and down in 9. On our agent data it did not help in our first runs, at any budget or in any of four variants (per trajectory, full drop share from the start, per agent step, per span). On SWE-bench Verified the per-trajectory version is level with plain SFT at pass@1 (23.4% against 23.4%) and 7 points below it at pass@8 (51.0% against 58.0%, −7.0 ± 4.3 paired over tasks); on the terminal data it is 5 points below plain SFT at pass@1 on TB-Lite (22.0% against 27.2%) and level on Terminal-Bench 2.0 (9.9% against 10.2%), and 3 to 7 points below at pass@8.
 
-**Table 1.** TailSFT against plain SFT at 3 nominal epochs (66 steps on the terminal data, 228 on the SWE data), pass@1 and pass@8 in %, averaged over 8 seeds. All rows of a benchmark use the same tasks (100, 88 and 97; Section 2.4). TailSFT drops half of each batch's trajectories, with the drop share ramped up linearly over the run. All TailSFT rows are clip-1.0 runs that were clipped no more than plain SFT was (on 4% of logged steps on the SWE data; on the same three early steps on the terminal data), so they stand (Section 6, item 5).
+**Table 1.** TailSFT against plain SFT at 3 nominal epochs (66 steps on the terminal data, 228 on the SWE data), pass@1 and pass@8 in %, averaged over 8 seeds. All rows of a benchmark use the same tasks (100, 88 and 97; Section 2.4). TailSFT drops half of each batch's trajectories, with the drop share ramped up linearly over the run, the setting the TailSFT paper selected for its math runs. All TailSFT rows are clip-1.0 runs that were clipped no more than plain SFT was (on 4% of logged steps on the SWE data; on the same three early steps on the terminal data), so they stand (Section 6, item 5).
 
 | benchmark | model | pass@1 | pass@8 |
 |---|---|---|---|
@@ -130,24 +130,6 @@ Two things stand out so far. First, plain SFT on this data is strong: 20 nominal
 
 **Learning-rate sensitivity.** The runs above use a learning rate of 1e-4, which turns out to be low for a 228-step run. Repeating the 3-epoch plain-SFT run at 3e-4 (Table 3, rows marked LR 3e-4) lifts it by 11.0 points at pass@1 and 10.0 at pass@8, to 34.4% and 68.0%; it still sits 7.9 points below plain SFT at the default rate for 10 epochs, so the extra passes do most of the work there. The Plateau Dropping run at the higher rate is being redone at the corrected clip; the comparison at a matched higher rate is the main check on the short-budget result, and the same check at 10 epochs is the next experiment.
 
-**Why it helps at 3 epochs.** We parsed the evaluation trajectories (Table 4; every attempt of every seed). At 3 epochs the plain-SFT agent is still half-trained as an agent: it writes long reasoning per step (3,220 characters), so it fits fewer steps before running out of context; it breaks the tool-call format often enough that 1 attempt in 8 ends on three malformed calls in a row; it runs the repository's tests 8 times per attempt and rarely after its last edit; and it submits in only 21% of attempts. By 20 epochs it has learned the format, tests almost twice as often and submits in 53% of attempts. The Plateau Dropping columns will be filled from the clip-4.0 runs; in our first runs (Section 6) the Plateau Dropping agent at 3 epochs already looked like the 20-epoch models on every one of these measures, with its gain split between better fix quality and better localisation. These are correlations from one analysis of the evaluation trajectories, not a causal test.
-
-**Table 4.** Behaviour of the evaluation attempts on SWE-bench Verified, all 8 seeds on all 100 tasks (796 to 800 parsed attempts per model; "gold files" are the files the reference fix edits). The Plateau Dropping columns are being recomputed on the clip-4.0 runs.
-
-| | SFT, 3 epochs | Plateau Dropping, 3 epochs | SFT, 20 epochs | Plateau Dropping, 20 epochs |
-|---|---|---|---|---|
-| pass rate on these attempts, % | 23.5 | [clip-4.0 run in progress] | 44.9 | [clip-4.0 run in progress] |
-| attempt ends by submitting, % | 21.0 | [clip-4.0 run in progress] | 52.8 | [clip-4.0 run in progress] |
-| attempt ends on 3 consecutive malformed tool calls, % | 12.3 | [clip-4.0 run in progress] | 1.6 | [clip-4.0 run in progress] |
-| attempt ends by running out of context, % | 66.7 | [clip-4.0 run in progress] | 45.6 | [clip-4.0 run in progress] |
-| malformed tool calls per attempt | 2.0 | [clip-4.0 run in progress] | 1.0 | [clip-4.0 run in progress] |
-| reasoning characters per step | 3,220 | [clip-4.0 run in progress] | 2,430 | [clip-4.0 run in progress] |
-| steps per attempt (median) | 167 | [clip-4.0 run in progress] | 139 | [clip-4.0 run in progress] |
-| test runs per attempt | 7.9 | [clip-4.0 run in progress] | 13.7 | [clip-4.0 run in progress] |
-| ran tests after its last edit, % | 18.3 | [clip-4.0 run in progress] | 43.7 | [clip-4.0 run in progress] |
-| edited every gold file, % | 64.7 | [clip-4.0 run in progress] | 75.8 | [clip-4.0 run in progress] |
-| pass given every gold file edited, % | 34.2 | [clip-4.0 run in progress] | 56.6 | [clip-4.0 run in progress] |
-
 ### 3.2 Terminal benchmarks
 
 ![Figure 3](/assets/img/blog/plateau-dropping/fig3_tb2_corrected.png)
@@ -160,7 +142,7 @@ Figure 3. Terminal-Bench 2.0, pass@1 and pass@8 (%) against training length (66,
 Figure 4. TB-Lite, pass@1 and pass@8 (%) against training length (66, 220 and 440 steps) for plain SFT (red) and Plateau Dropping (green), averaged over 8 seeds; dashed: the base model. All 97 tasks (Section 2.4). The Plateau Dropping runs are being redone at clip 4.0 and appear when their evaluations finish.
 {: .caption}
 
-**Table 5.** TB-Lite, pass@1 and pass@8 in %, 8 seeds, all 97 tasks (Section 2.4).
+**Table 4.** TB-Lite, pass@1 and pass@8 in %, 8 seeds, all 97 tasks (Section 2.4).
 
 | training length | model | pass@1 | pass@8 |
 |---|---|---|---|
@@ -172,7 +154,7 @@ Figure 4. TB-Lite, pass@1 and pass@8 (%) against training length (66, 220 and 44
 | 20 epochs (440 steps) | + SFT | 33.2 | 68.0 |
 | 20 epochs (440 steps) | + Plateau Dropping | [clip-4.0 run in progress] | [clip-4.0 run in progress] |
 
-**Table 6.** Terminal-Bench 2.0, pass@1 and pass@8 in %, 8 seeds, all 88 tasks (Section 2.4).
+**Table 5.** Terminal-Bench 2.0, pass@1 and pass@8 in %, 8 seeds, all 88 tasks (Section 2.4).
 
 | training length | model | pass@1 | pass@8 |
 |---|---|---|---|
@@ -219,7 +201,7 @@ Figure 5. Left: training loss over all tokens on the SWE data for our first, bug
 
 **4. Epochs were overstated.** We first counted passes from token totals and ignored row padding, so what we called "10 epochs" on the terminal data were 7.6 real passes and "20 epochs" on the SWE data were 14.8. This post keeps the nominal names and gives the real pass counts in Section 2.2.
 
-**5. Gradient clipping was silently penalising Plateau Dropping.** The trainer clips the global gradient norm at 1.0, the usual setting, and the loss Plateau Dropping optimises is a mean over the kept tokens only. Once it has dropped half the tokens its gradient norm is two to three times plain SFT's, so the clip, which touches 3 to 5% of plain SFT's steps, hit 50% of the steps of the 10-epoch Plateau Dropping run on the SWE data and 82 to 100% of the steps of the terminal runs (Section 6, item 5). Nothing in the training logs flagged it: the loss curves of the clipped and unclipped runs are indistinguishable, and only the evaluations differ, by 2 to 6 points at 10 epochs. At 10 epochs on the SWE data the two settings compare as follows (8 seeds, all 100 tasks; the loss curves of the two Plateau Dropping runs are indistinguishable, 0.347 against 0.346 over all tokens at the end):
+**5. Gradient clipping was silently penalising Plateau Dropping.** The trainer clips the global gradient norm at 1.0, the usual setting, and the loss Plateau Dropping optimises is a mean over the kept tokens only. Once it has dropped half the tokens its gradient norm is two to three times plain SFT's, so the clip, which touches 3 to 5% of plain SFT's steps, hit 50% of the steps of the 10-epoch Plateau Dropping run on the SWE data and 82 to 100% of the steps of the terminal runs (Section 6, item 5). Nothing in the training logs flagged it: the loss curves of the clipped and unclipped runs are indistinguishable, and only the evaluations differ, by 2 to 6 points at 10 epochs. The interaction belongs to any method that averages its loss over a kept subset of the batch, not to Plateau Dropping in particular; the TailSFT paper's runs use a clip of 1.0 with the loss averaged over the kept examples and report no gradient norms, so its results are likely affected the same way. At 10 epochs on the SWE data the two settings compare as follows (8 seeds, all 100 tasks; the loss curves of the two Plateau Dropping runs are indistinguishable, 0.347 against 0.346 over all tokens at the end):
 
 | 10 epochs (760 steps) | pass@1 | pass@8 |
 |---|---|---|
