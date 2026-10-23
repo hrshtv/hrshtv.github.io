@@ -20,7 +20,7 @@ We instead propose a simple approach which we call *Plateau Dropping*. It is ver
 During SFT, we track the loss for every token, and drop it from the loss if it has not changed enough in the last few times it was seen. This effectively allows the model to focus on the "learnable band" of tokens at every step.
 If a dropped token's loss moves again in the future, it gets re-added to the loss.
 We find that this simple approach works well for long-horizon agentic tasks, as measured by pass@1 and pass@8 on SWE-bench Verified, Terminal-Bench 2.0, and OpenThoughts-TBLite for an open-source 67B-A2B model.
-We in fact observe consistent gains for both pass@1 and pass@8, not only leading to better starting points for further post-training, but also better checkpoints in general.
+We in fact observe consistent gains for both pass@1 and pass@8 in some settings, not only leading to better starting points for further post-training, but also better checkpoints in general.
 
 </div>
 <div class="post-toc" markdown="1">
@@ -81,7 +81,19 @@ Our reading of why is that two things about sequence-level filtering do not fit 
 
 For each token position, the trainer keeps the token's loss at its last two visits and a visit count. For our 6,301 terminal trajectories this bookkeeping takes about 2 GB of host (CPU) memory in each training process, about 8 GB on a four-GPU node. From the third visit on, if the loss changed by less than 10% between each of the last two visits (relative change, with a floor of 0.05), the token is dropped: its term is removed from the training loss, so it no longer contributes to the parameter update, but it still stays in the input as context for the tokens around it. If its loss moves again, it is trained again. Learned and stuck tokens are treated alike. Everything else is standard SFT, and the loss is averaged over the kept tokens.
 
-Formally, let $$\ell_i^{(v)}$$ be the loss of token $$i$$ at its $$v$$-th visit, and $$w_i \in \{0, 1\}$$ its SFT weight (1 for the agent's own tokens, 0 for prompts and tool outputs). With the relative change
+Formally, for a training trajectory $$y = (y_1, \dots, y_T) \sim \mathcal{D}$$, the loss of token $$i$$ is its negative log-likelihood under the model,
+
+$$
+\ell_i(\theta) = -\log p_\theta\big(y_i \mid y_{<i}\big),
+$$
+
+where $$y_{<i}$$ is everything before it in the trajectory (the prompt, earlier turns and tool outputs). Let $$w_i \in \{0, 1\}$$ be its SFT weight (1 for the agent's own tokens, 0 for prompts and tool outputs). Plain SFT minimises the expected loss of a trained token,
+
+$$
+\mathcal{L}_{\mathrm{SFT}}(\theta) = \mathbb{E}_{(y,\, i) \sim \mathcal{D}_w}\big[\ell_i(\theta)\big],
+$$
+
+where $$\mathcal{D}_w$$ draws a token uniformly from all tokens with $$w_i = 1$$ in the data, together with its trajectory. Let $$\ell_i^{(v)}$$ be the value of $$\ell_i$$ at the token's $$v$$-th visit. With the relative change
 
 $$
 r(a, b) = \frac{|b - a|}{\max(a, \varepsilon)},
