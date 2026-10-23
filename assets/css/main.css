@@ -403,3 +403,61 @@ body {
 .post-meta-sep {
   margin: 0 0.75rem;
 }
+
+/* Summary with the table of contents beside it */
+.post-intro {
+  display: flex;
+  align-items: flex-start;
+  gap: 2rem;
+}
+
+.post-summary {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.post-summary p:last-child { margin-bottom: 0; }
+
+.post-toc {
+  flex: 0 0 15rem;
+  background-color: var(--nav-bg-color);
+  border-radius: 4px;
+  padding: 1rem 1.25rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.post-content .post-toc .post-toc-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-light-color);
+}
+
+.post-content .post-toc ul {
+  list-style: none;
+  margin: 0;
+  padding-left: 0;
+}
+
+.post-content .post-toc ul ul {
+  padding-left: 0.9rem;
+}
+
+.post-content .post-toc li {
+  margin: 0.2rem 0;
+}
+
+.post-content .post-toc a {
+  color: var(--main-text-color);
+}
+
+.post-content .post-toc a:hover {
+  color: var(--main-link-hover);
+}
+
+@media (max-width: 1199.98px) {
+  .post-intro { flex-direction: column; gap: 1.5rem; }
+  .post-toc { flex-basis: auto; width: 100%; }
+}

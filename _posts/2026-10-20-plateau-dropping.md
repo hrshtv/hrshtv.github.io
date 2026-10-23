@@ -7,6 +7,9 @@ list_description: false
 math: true
 ---
 
+<div class="post-intro" markdown="1">
+<div class="post-summary" markdown="1">
+
 **Summary.** 
 Supervised fine-tuning (SFT) has become a key component of post-training almost every major LLM.
 However, this is usually not the final step in the post-training pipeline.
@@ -16,10 +19,13 @@ TailSFT is a recent method proposed to tackle this problem. However, we find tha
 We instead propose a simple approach which we call *Plateau Dropping*. It is very loosely inspired by GRPO-based methods not learning from saturated (all pass) / impossible (none pass) tasks.
 During SFT, we track the loss for every token, and drop it from the loss if it has not changed enough in the last few times it was seen. This effectively allows the model to focus on the "learnable band" of tokens at every step.
 If a dropped token's loss moves again in the future, it gets re-added to the loss.
-We find that this simple approach works well for long-horizon agentic tasks, as measured by pass@1 and pass@8 on SWE-bench Verified and Terminal-Bench 2.0 for an open-source 67B-A2B model.
-We in fact observe consistent gains for both pass@1 and pass@8, not only leading to better starting points for further post-training, but also better checkpoints in general. 
+We find that this simple approach works well for long-horizon agentic tasks, as measured by pass@1 and pass@8 on SWE-bench Verified, Terminal-Bench 2.0, and OpenThoughts-TBLite for an open-source 67B-A2B model.
+We in fact observe consistent gains for both pass@1 and pass@8, not only leading to better starting points for further post-training, but also better checkpoints in general.
 
-**Contents**
+</div>
+<div class="post-toc" markdown="1">
+
+<p class="post-toc-title">Contents</p>
 
 - [1. Introduction and motivation](#1-introduction-and-motivation)
 - [2. Method](#2-method)
@@ -35,6 +41,9 @@ We in fact observe consistent gains for both pass@1 and pass@8, not only leading
 - [6. Training bugs we found along the way](#6-training-bugs-we-found-along-the-way)
 - [Appendix: our data in context](#appendix-our-data-in-context)
 - [References](#references)
+
+</div>
+</div>
 
 ---
 
@@ -109,7 +118,7 @@ Our packer fills fixed-length rows (64k tokens on the SWE data, 32k on the termi
 
 ### 2.4 Evaluation
 
-We use Terminal-Bench 2.0 (89 tasks), TB-Lite (100 command-line tasks), and a fixed random 100 tasks of SWE-bench Verified. Every model runs in mini-swe-agent at temperature 1, with three times the default time limit. Each seed is one independent attempt at every task, and every model has 8 seeds. A task is solved only with full credit. An attempt that hits the time limit is scored by the tests on whatever the agent left, so in rare cases it still counts as solved; an attempt that fails for infrastructure reasons (a sandbox or API error; between 0 and 15 of a model's 800 attempts, usually 1 to 7) counts as a failed attempt. So every model has exactly 8 attempts on every task, and every number in this post, in the tables and the figures alike, is computed on the same tasks: all 100 on SWE-bench Verified, 88 on Terminal-Bench 2.0 and 97 on TB-Lite (one and three tasks whose sandboxes never built for any model are excluded). pass@k is the unbiased estimate from the 8 attempts. Differences between two models are paired by task, and the standard errors quoted for them come from a bootstrap over tasks.
+We use Terminal-Bench 2.0 (89 tasks), [OpenThoughts-TBLite](https://huggingface.co/datasets/open-thoughts/OpenThoughts-TBLite) (TB-Lite below; 100 command-line tasks), and a fixed random 100 tasks of SWE-bench Verified. Every model runs in mini-swe-agent at temperature 1, with three times the default time limit. Each seed is one independent attempt at every task, and every model has 8 seeds. A task is solved only with full credit. An attempt that hits the time limit is scored by the tests on whatever the agent left, so in rare cases it still counts as solved; an attempt that fails for infrastructure reasons (a sandbox or API error; between 0 and 15 of a model's 800 attempts, usually 1 to 7) counts as a failed attempt. So every model has exactly 8 attempts on every task, and every number in this post, in the tables and the figures alike, is computed on the same tasks: all 100 on SWE-bench Verified, 88 on Terminal-Bench 2.0 and 97 on TB-Lite (one and three tasks whose sandboxes never built for any model are excluded). pass@k is the unbiased estimate from the 8 attempts. Differences between two models are paired by task, and the standard errors quoted for them come from a bootstrap over tasks.
 
 One change to the SWE-bench Verified grader: before running the tests, the standard Harbor task script deletes every file that git does not track, which also deletes new source files the agent created as part of its fix, so a correct fix that adds a file is graded as a failure. Our test script deletes only the untracked files that the benchmark's own test patch touches, and is otherwise unchanged. Every model in this post is graded the same way, so the comparisons between them are unaffected, but our absolute SWE-bench Verified numbers can be higher than those from the stock Harbor tasks.
 
