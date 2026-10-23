@@ -79,24 +79,6 @@ Our packer fills fixed-length rows (64k tokens on the SWE data, 32k on the termi
 - **Compared models.** On the terminal data: SFT and Plateau Dropping for 3, 10 and 20 nominal epochs (66, 220 and 440 steps), and TailSFT for 3. On the SWE data: SFT and Plateau Dropping for 3, 10 and 20 nominal epochs (228, 760 and 1,520 steps), TailSFT for 3, and the 3-epoch pair again at a learning rate of 3e-4. Every Plateau Dropping and TailSFT model in the main tables is a run at gradient clip 4.0; the cells marked as in progress belong to runs being redone at that clip.
 - **Harness.** We use the [mini-swe-agent](https://github.com/SWE-agent/mini-swe-agent) harness everywhere: all training trajectories are in its format, and all evaluations run in it. At each step the model writes its reasoning and one shell command, then sees the command's output.
 
-**Our data in context.** By the standards of public agentic SFT data, our datasets are small to mid-sized (Table 2). In trajectory count they are close to the sets several SWE agents were fine-tuned on (SWE-smith, R2E-Gym, SWE-Dev) and to the terminal set we draw from, and one to two orders of magnitude below the largest public releases (Open-SWE-Traces, Nemotron-Terminal-Corpus). None of the public releases reports a total token count.
-
-**Table 2.** Size of public agentic SFT datasets, as stated in each paper or dataset card ("–": not reported).
-
-| dataset | domain | tasks | trajectories | tokens |
-|---|---|---|---|---|
-| [SWE-Gym](https://arxiv.org/abs/2412.21139) | SWE | 2,438 | 491 used for SFT | – |
-| [R2E-Gym](https://arxiv.org/abs/2504.07164) | SWE | 2,048 environments | 3,321 | – |
-| [SWE-smith](https://arxiv.org/abs/2504.21798) | SWE | 50k instances (128 repos) | 5,016 used for SFT | – |
-| [SWE-Dev](https://arxiv.org/abs/2506.07636) | SWE | 38k instances | 2.3k to 16.6k across runs | – |
-| [SWE-rebench OpenHands trajectories](https://huggingface.co/datasets/nebius/SWE-rebench-openhands-trajectories) | SWE | 3,792 issues resolved | 67,074 (32,161 successful) | – |
-| [nvidia/Open-SWE-Traces](https://huggingface.co/datasets/nvidia/Open-SWE-Traces) v1.2 | SWE | – | 263,371 | – |
-| [allenai/tmax-sft](https://huggingface.co/datasets/allenai/tmax-sft) | terminal | about 2.2k environments | 10,726 (5,795 successful) | – |
-| [OpenThoughts-Agent-v1-SFT](https://huggingface.co/datasets/open-thoughts/OpenThoughts-Agent-v1-SFT) | terminal | – | 15,209 | – |
-| [Nemotron-Terminal-Corpus](https://huggingface.co/datasets/nvidia/Nemotron-Terminal-Corpus) | terminal | – | 366,154 | – |
-| **ours, terminal data** | terminal | 1,610 | 6,301 | 45M (28M trained) |
-| **ours, SWE data** | SWE | 7,005 | 9,229 | 319M |
-
 ### 2.4 Evaluation
 
 We use Terminal-Bench 2.0 (89 tasks), TB-Lite (100 command-line tasks), and a fixed random 100 tasks of SWE-bench Verified. Every model runs in mini-swe-agent at temperature 1, with three times the default time limit. Each seed is one independent attempt at every task, and every model has 8 seeds. A task is solved only with full credit. An attempt that hits the time limit is scored by the tests on whatever the agent left, so in rare cases it still counts as solved; an attempt that fails for infrastructure reasons (a sandbox or API error; between 0 and 15 of a model's 800 attempts, usually 1 to 7) counts as a failed attempt. So every model has exactly 8 attempts on every task, and every number in this post, in the tables and the figures alike, is computed on the same tasks: all 100 on SWE-bench Verified, 88 on Terminal-Bench 2.0 and 97 on TB-Lite (one and three tasks whose sandboxes never built for any model are excluded). pass@k is the unbiased estimate from the 8 attempts. Differences between two models are paired by task, and the standard errors quoted for them come from a bootstrap over tasks.
@@ -112,7 +94,7 @@ One change to the SWE-bench Verified grader: before running the tests, the stand
 Figure 2. SWE-bench Verified (random 100 tasks), pass@1 and pass@8 (%) against training length for plain SFT (red) and Plateau Dropping (green), 8 seeds, all 100 tasks (Section 2.4); dashed: the base model; hollow marker: plain SFT at a learning rate of 3e-4. Plateau Dropping runs are at gradient clip 4.0; its 3- and 20-epoch points are being rerun at that clip and appear when their evaluations finish.
 {: .caption}
 
-**Table 3.** SWE-bench Verified, pass@1 and pass@8 in %, 8 seeds, all 100 tasks (Section 2.4). Rows marked LR 3e-4 were trained at three times the default learning rate. Every Plateau Dropping row is a run at gradient clip 4.0 (Section 2.3); the rows marked in progress are being rerun at that clip. Bold marks the best value at each training length.
+**Table 2.** SWE-bench Verified, pass@1 and pass@8 in %, 8 seeds, all 100 tasks (Section 2.4). Rows marked LR 3e-4 were trained at three times the default learning rate. Every Plateau Dropping row is a run at gradient clip 4.0 (Section 2.3); the rows marked in progress are being rerun at that clip. Bold marks the best value at each training length.
 
 | training length | model | pass@1 | pass@8 |
 |---|---|---|---|
@@ -128,7 +110,7 @@ Figure 2. SWE-bench Verified (random 100 tasks), pass@1 and pass@8 (%) against t
 
 Two things stand out so far. First, plain SFT on this data is strong: 20 nominal epochs take the base model from 19.2% to 44.9% pass@1 and from 46.0% to 75.0% pass@8, and the loss keeps falling throughout (Figure 1). Second, at 10 nominal epochs Plateau Dropping is 6.5 points ahead at pass@1 (three standard errors) and 8.0 ahead at pass@8 (2.7 standard errors), while its loss curve over all tokens is nearly indistinguishable from plain SFT's (Figure 1): the gain does not show in the training loss. The 3- and 20-epoch Plateau Dropping runs are being redone at the corrected clip; they will show whether the lead is larger at a short budget and whether it closes at a long one, as our first runs suggested (Section 6).
 
-**Learning-rate sensitivity.** The runs above use a learning rate of 1e-4, which turns out to be low for a 228-step run. Repeating the 3-epoch plain-SFT run at 3e-4 (Table 3, rows marked LR 3e-4) lifts it by 11.0 points at pass@1 and 10.0 at pass@8, to 34.4% and 68.0%; it still sits 7.9 points below plain SFT at the default rate for 10 epochs, so the extra passes do most of the work there. The Plateau Dropping run at the higher rate is being redone at the corrected clip; the comparison at a matched higher rate is the main check on the short-budget result, and the same check at 10 epochs is the next experiment.
+**Learning-rate sensitivity.** The runs above use a learning rate of 1e-4, which turns out to be low for a 228-step run. Repeating the 3-epoch plain-SFT run at 3e-4 (Table 2, rows marked LR 3e-4) lifts it by 11.0 points at pass@1 and 10.0 at pass@8, to 34.4% and 68.0%; it still sits 7.9 points below plain SFT at the default rate for 10 epochs, so the extra passes do most of the work there. The Plateau Dropping run at the higher rate is being redone at the corrected clip; the comparison at a matched higher rate is the main check on the short-budget result, and the same check at 10 epochs is the next experiment.
 
 ### 3.2 Terminal benchmarks
 
@@ -142,7 +124,7 @@ Figure 3. Terminal-Bench 2.0, pass@1 and pass@8 (%) against training length (66,
 Figure 4. TB-Lite, pass@1 and pass@8 (%) against training length (66, 220 and 440 steps) for plain SFT (red) and Plateau Dropping (green), averaged over 8 seeds; dashed: the base model. All 97 tasks (Section 2.4). The Plateau Dropping runs are being redone at clip 4.0 and appear when their evaluations finish.
 {: .caption}
 
-**Table 4.** TB-Lite, pass@1 and pass@8 in %, 8 seeds, all 97 tasks (Section 2.4).
+**Table 3.** TB-Lite, pass@1 and pass@8 in %, 8 seeds, all 97 tasks (Section 2.4).
 
 | training length | model | pass@1 | pass@8 |
 |---|---|---|---|
@@ -154,7 +136,7 @@ Figure 4. TB-Lite, pass@1 and pass@8 (%) against training length (66, 220 and 44
 | 20 epochs (440 steps) | + SFT | 33.2 | 68.0 |
 | 20 epochs (440 steps) | + Plateau Dropping | [clip-4.0 run in progress] | [clip-4.0 run in progress] |
 
-**Table 5.** Terminal-Bench 2.0, pass@1 and pass@8 in %, 8 seeds, all 88 tasks (Section 2.4).
+**Table 4.** Terminal-Bench 2.0, pass@1 and pass@8 in %, 8 seeds, all 88 tasks (Section 2.4).
 
 | training length | model | pass@1 | pass@8 |
 |---|---|---|---|
@@ -211,7 +193,27 @@ Figure 5. Left: training loss over all tokens on the SWE data for our first, bug
 
 Clip 4.0 beats clip 1.0 by 2.1 ± 1.7 points at pass@1 and 6.0 ± 2.3 at pass@8, paired over tasks. Every Plateau Dropping and TailSFT run of our first pass was trained at clip 1.0; at that setting Plateau Dropping was ahead of plain SFT by 8.5 points at pass@1 and 9.0 at pass@8 after 3 epochs on SWE-bench Verified, by 4.4 and 2.0 at 10 epochs, level at 20, ahead by 4.9 and 6.2 on TB-Lite at 220 steps, and below its own 220-step result at 440 steps, where the clip had engaged on 91% of its steps. The TailSFT runs were clipped no more than plain SFT was (on 4% of logged steps on the SWE data, on the same three early steps on the terminal data) and stand as they are. Every Plateau Dropping run is being redone at clip 4.0, including the two on which the clip barely engaged at 1.0 (the 3-epoch SWE run, never; the 66-step terminal run, on the same three early steps as plain SFT), and only clip-4.0 runs appear in the main text. The cleaner fix, normalising the kept-token loss by the full token count so that dropping never rescales the gradient, is next on the list.
 
-**What the bugs did to our conclusions.** In the buggy runs the training loss flattened after one pass, and plain SFT barely moved the base model (19.5% pass@1 on SWE-bench Verified after 20 nominal epochs, against 19.3% for the base) while Plateau Dropping reached 31.1%. Both observations were the first bug: with the fixed trainer the loss falls throughout and plain SFT reaches 44.9% pass@1 and 75.0% pass@8. We do not have a complete account of why Plateau Dropping still improved under the bug. Its gradients are larger, because its loss is averaged over fewer, harder tokens, which would let more of its updates survive the rounding; but the fraction of weights that moved at all was the same in both arms, so that comparison was between two models that had barely trained, and its 10-point gap at 20 epochs does not survive the fix: with both arms training properly, the two are level (Table 3). The terminal-benchmark results of the buggy runs came from the same regime. What survives, once the gradient clip is set correctly for the method (item 5), is a lead of 6.5 points at pass@1 and 8.0 at pass@8 after 10 epochs on SWE-bench Verified; the fixed runs at the other budgets are in progress. The ablations, the runs from a stronger starting checkpoint, and the comparison of RL started from plain SFT and from Plateau Dropping were all trained under the bugs, and we leave them out of this post until they are rerun (the RL runs themselves were unaffected; their SFT starting points were not). The fixes (fp32 master weights, the capacity-factor setting, the corrected scoring pass, and a gradient-clipping setting for the ablation of Section 6, item 5) are in our fork of the trainer.
+**What the bugs did to our conclusions.** In the buggy runs the training loss flattened after one pass, and plain SFT barely moved the base model (19.5% pass@1 on SWE-bench Verified after 20 nominal epochs, against 19.3% for the base) while Plateau Dropping reached 31.1%. Both observations were the first bug: with the fixed trainer the loss falls throughout and plain SFT reaches 44.9% pass@1 and 75.0% pass@8. We do not have a complete account of why Plateau Dropping still improved under the bug. Its gradients are larger, because its loss is averaged over fewer, harder tokens, which would let more of its updates survive the rounding; but the fraction of weights that moved at all was the same in both arms, so that comparison was between two models that had barely trained, and its 10-point gap at 20 epochs does not survive the fix: with both arms training properly, the two are level (Table 2). The terminal-benchmark results of the buggy runs came from the same regime. What survives, once the gradient clip is set correctly for the method (item 5), is a lead of 6.5 points at pass@1 and 8.0 at pass@8 after 10 epochs on SWE-bench Verified; the fixed runs at the other budgets are in progress. The ablations, the runs from a stronger starting checkpoint, and the comparison of RL started from plain SFT and from Plateau Dropping were all trained under the bugs, and we leave them out of this post until they are rerun (the RL runs themselves were unaffected; their SFT starting points were not). The fixes (fp32 master weights, the capacity-factor setting, the corrected scoring pass, and a gradient-clipping setting for the ablation of Section 6, item 5) are in our fork of the trainer.
+
+## Appendix: our data in context
+
+By the standards of public agentic SFT data, our datasets are small to mid-sized (Table 5). In trajectory count they are close to the sets several SWE agents were fine-tuned on (SWE-smith, R2E-Gym, SWE-Dev) and to the terminal set we draw from, and one to two orders of magnitude below the largest public releases (Open-SWE-Traces, Nemotron-Terminal-Corpus). None of the public releases reports a total token count.
+
+**Table 5.** Size of public agentic SFT datasets, as stated in each paper or dataset card ("–": not reported).
+
+| dataset | domain | tasks | trajectories | tokens |
+|---|---|---|---|---|
+| [SWE-Gym](https://arxiv.org/abs/2412.21139) | SWE | 2,438 | 491 used for SFT | – |
+| [R2E-Gym](https://arxiv.org/abs/2504.07164) | SWE | 2,048 environments | 3,321 | – |
+| [SWE-smith](https://arxiv.org/abs/2504.21798) | SWE | 50k instances (128 repos) | 5,016 used for SFT | – |
+| [SWE-Dev](https://arxiv.org/abs/2506.07636) | SWE | 38k instances | 2.3k to 16.6k across runs | – |
+| [SWE-rebench OpenHands trajectories](https://huggingface.co/datasets/nebius/SWE-rebench-openhands-trajectories) | SWE | 3,792 issues resolved | 67,074 (32,161 successful) | – |
+| [nvidia/Open-SWE-Traces](https://huggingface.co/datasets/nvidia/Open-SWE-Traces) v1.2 | SWE | – | 263,371 | – |
+| [allenai/tmax-sft](https://huggingface.co/datasets/allenai/tmax-sft) | terminal | about 2.2k environments | 10,726 (5,795 successful) | – |
+| [OpenThoughts-Agent-v1-SFT](https://huggingface.co/datasets/open-thoughts/OpenThoughts-Agent-v1-SFT) | terminal | – | 15,209 | – |
+| [Nemotron-Terminal-Corpus](https://huggingface.co/datasets/nvidia/Nemotron-Terminal-Corpus) | terminal | – | 366,154 | – |
+| **ours, terminal data** | terminal | 1,610 | 6,301 | 45M (28M trained) |
+| **ours, SWE data** | SWE | 7,005 | 9,229 | 319M |
 
 ## References
 
