@@ -1,22 +1,40 @@
 ---
 layout: post
-title: "Plateau Dropping: a simple SFT change for better agentic post-training"
+title: "Plateau Dropping: a simple SFT rule for better agentic post-training"
 description: "Dropping each token from the SFT loss once its loss stops changing; after 10 epochs on SWE-agent data, 48.8% vs 42.2% pass@1 on SWE-bench Verified."
 authors: Harshit Varma
+list_description: false
 math: true
 ---
 
 **Summary.** 
 Supervised fine-tuning (SFT) has become a key component of post-training almost every major LLM.
 However, this is usually not the final step in the post-training pipeline.
-Several existing works show that although prolonged SFT improves pass@1, it usually ends up hurting diversity / coverage (as measured by pass@k, for some "large" k). This is called the "sharpening effect", wherein the SFT "sharpens" the model to be even more confident at things it is already very confident at.
+Several existing works show that although prolonged SFT improves pass@1, it usually ends up hurting diversity / coverage (as measured by pass@k, for some "large" k). This is called the "sharpening effect", wherein SFT "sharpens" the model to be even more confident at things it is already very confident at.
 This behavior is not conducive to further post-training of the model as it inhibits exploration. For example, GRPO-based RL pipelines, which usually follow SFT in a lot of post-training pipelines, do not work well with a model that is not diverse enough to start with.
 TailSFT is a recent method proposed to tackle this problem. However, we find that TailSFT (and some variants/extensions that we tried) does not help in our long-horizon agentic setup.
-We instead propose a simple new approach which we call *Plateau Dropping*. It is very loosely inspired by GRPO-based methods not learning from saturated (all pass) / impossible (none pass) tasks.
+We instead propose a simple approach which we call *Plateau Dropping*. It is very loosely inspired by GRPO-based methods not learning from saturated (all pass) / impossible (none pass) tasks.
 During SFT, we track the loss for every token, and drop it from the loss if it has not changed enough in the last few times it was seen. This effectively allows the model to focus on the "learnable band" of tokens at every step.
 If a dropped token's loss moves again in the future, it gets re-added to the loss.
 We find that this simple approach works well for long-horizon agentic tasks, as measured by pass@1 and pass@8 on SWE-bench Verified and Terminal-Bench 2.0 for an open-source 67B-A2B model.
 We in fact observe consistent gains for both pass@1 and pass@8, not only leading to better starting points for further post-training, but also better checkpoints in general. 
+
+**Contents**
+
+- [1. Introduction and motivation](#1-introduction-and-motivation)
+- [2. Method](#2-method)
+  - [2.1 The plateau test](#21-the-plateau-test)
+  - [2.2 What gets dropped](#22-what-gets-dropped)
+  - [2.3 Setup](#23-setup)
+  - [2.4 Evaluation](#24-evaluation)
+- [3. Results](#3-results)
+  - [3.1 SWE-bench Verified](#31-swe-bench-verified)
+  - [3.2 Terminal benchmarks](#32-terminal-benchmarks)
+- [4. Related work](#4-related-work)
+- [5. Conclusion](#5-conclusion)
+- [6. Training bugs we found along the way](#6-training-bugs-we-found-along-the-way)
+- [Appendix: our data in context](#appendix-our-data-in-context)
+- [References](#references)
 
 ---
 
