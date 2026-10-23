@@ -117,8 +117,8 @@ Our packer fills fixed-length rows (64k tokens on the SWE data, 32k on the termi
 - **Model.** A 67B mixture-of-experts model with about 2B parameters active per token: [open-athena/Grug-67B-A2B-Datakit-SFT-262K-2026.09.21](https://huggingface.co/open-athena/Grug-67B-A2B-Datakit-SFT-262K-2026.09.21).
 - **Terminal data.** 6,301 successful trajectories (45M tokens, 1,610 tasks): 5,324 from the public [allenai/tmax-sft](https://huggingface.co/datasets/allenai/tmax-sft) dataset, written by a 27B teacher, and 977 of the base model's own successes on synthetic terminal tasks. Context 32k.
 - **SWE data.** 9,229 resolved trajectories (7,005 tasks) from the public [nvidia/Open-SWE-Traces](https://huggingface.co/datasets/nvidia/Open-SWE-Traces) dataset, restricted to one shell command per step to match our agent (319M tokens). Context 64k.
-- **Training.** Learning rate 1e-4, cosine schedule over the run with 3% warmup, AdamH, no weight decay, global gradient-norm clipping at 4.0 for Plateau Dropping and TailSFT (Appendix A, item 5, explains why the usual 1.0 is wrong for them) and 1.0 for plain SFT, whose gradient norm rarely reaches 1.0, bf16 compute with fp32 master weights and optimizer state, expert capacity factor 2.0 (no dropped token-to-expert assignments), router biases frozen, 16 nodes of 4 GPUs each. Plain SFT and Plateau Dropping runs of the same length share the data order.
-- **Compared models.** On the terminal data: SFT and Plateau Dropping for 3 and 10 nominal epochs (66 and 220 steps), and TailSFT for 3. On the SWE data: SFT and Plateau Dropping for 3 and 10 nominal epochs (228 and 760 steps), TailSFT for 3, the 3-epoch pair again at a learning rate of 3e-4, and plain SFT for 20 nominal epochs (1,520 steps) as a longer-trained baseline. Every Plateau Dropping and TailSFT model in the main tables is a run at gradient clip 4.0; the cells marked pending are Plateau Dropping runs not yet trained at that clip.
+- **Training.** Learning rate 1e-4, cosine schedule over the run with 3% warmup, AdamH, no weight decay, global gradient-norm clipping at 4.0 for the 10-epoch Plateau Dropping runs (Appendix A, item 5, explains why the usual 1.0 is wrong for them) and 1.0 for all other runs, whose gradient norm rarely reaches 1.0 (the exception is the learning-rate 3e-4 pair, where both arms use 4.0), bf16 compute with fp32 master weights and optimizer state, expert capacity factor 2.0 (no dropped token-to-expert assignments), router biases frozen, 16 nodes of 4 GPUs each. Plain SFT and Plateau Dropping runs of the same length share the data order.
+- **Compared models.** On the terminal data: SFT and Plateau Dropping for 3 and 10 nominal epochs (66 and 220 steps), and TailSFT for 3. On the SWE data: SFT and Plateau Dropping for 3 and 10 nominal epochs (228 and 760 steps), TailSFT for 3, the 3-epoch pair again at a learning rate of 3e-4, and plain SFT for 20 nominal epochs (1,520 steps) as a longer-trained baseline. The 10-epoch Plateau Dropping models are runs at gradient clip 4.0. At 3 epochs the clip does not matter: the SWE run never reaches 1.0 and the terminal run reaches it only on the same three early steps as plain SFT, so those runs are at 1.0, like plain SFT and TailSFT, which reach it on no more than 4% of steps (Appendix A, item 5); the exception is the learning-rate 3e-4 pair, where both arms use 4.0.
 - **Harness.** We use the [mini-swe-agent](https://github.com/SWE-agent/mini-swe-agent) harness everywhere: all training trajectories are in its format, and all evaluations run in it. At each step the model writes its reasoning and one shell command, then sees the command's output.
 
 ### 2.4 Evaluation
@@ -133,16 +133,16 @@ One change to the SWE-bench Verified grader: before running the tests, the stand
 
 ![Figure 2](/assets/img/blog/plateau-dropping/fig5_swebench_corrected.png)
 
-Figure 2. SWE-bench Verified (random 100 tasks), pass@1 and pass@8 (%) against training length for plain SFT (red) and Plateau Dropping (green), 8 seeds, all 100 tasks (Section 2.4); dashed: the base model; hollow markers: the 3-epoch pair at a learning rate of 3e-4 (both arms at clip 4.0). Plateau Dropping runs are at gradient clip 4.0; its 3-epoch point at that clip is pending.
+Figure 2. SWE-bench Verified (random 100 tasks), pass@1 and pass@8 (%) after 3 and 10 nominal epochs for plain SFT (red) and Plateau Dropping (green), 8 seeds, all 100 tasks (Section 2.4); dashed: the base model. The learning-rate check (Section 3.3) is in Table 1. Plateau Dropping at 10 epochs is at gradient clip 4.0; at 3 epochs the clip does not engage (Section 2.4).
 {: .caption}
 
-**Table 1.** SWE-bench Verified, pass@1 and pass@8 in %, 8 seeds, all 100 tasks (Section 2.4). Rows marked LR 3e-4 were trained at three times the default learning rate; at that rate plain SFT's gradient norm exceeds 1.0 on 43% of its steps, so both arms of those rows use clip 4.0, whereas at the default rate plain SFT uses the standard clip of 1.0 (Section 2.3). Every Plateau Dropping row is a run at gradient clip 4.0; the rows marked in progress are being rerun at that clip. Bold marks the best value at each training length.
+**Table 1.** SWE-bench Verified, pass@1 and pass@8 in %, 8 seeds, all 100 tasks (Section 2.4). Rows marked LR 3e-4 were trained at three times the default learning rate; at that rate plain SFT's gradient norm exceeds 1.0 on 43% of its steps, so both arms of those rows use clip 4.0, whereas at the default rate plain SFT uses the standard clip of 1.0 (Section 2.3). The 10-epoch Plateau Dropping row is a run at gradient clip 4.0; the 3-epoch Plateau Dropping row at the default rate is at 1.0, where the clip does not engage. Bold marks the best value at each training length.
 
 | training length | model | pass@1 | pass@8 |
 |---|---|---|---|
 | none | base model | 19.2 | 46.0 |
 | 3 epochs (228 steps) | + SFT | 23.4 | 58.0 |
-| 3 epochs (228 steps) | + Plateau Dropping | [pending] | [pending] |
+| 3 epochs (228 steps) | + Plateau Dropping | **31.9** | **67.0** |
 | 3 epochs (228 steps), LR 3e-4 | + SFT | 32.5 | 66.0 |
 | 3 epochs (228 steps), LR 3e-4 | + Plateau Dropping | **37.6** | **72.0** |
 | 10 epochs (760 steps) | + SFT | 42.2 | 70.0 |
@@ -152,22 +152,22 @@ The result the rest of the post rests on is the 10-epoch pair. After 10 nominal 
 
 ### 3.2 Check 1: training budget
 
-Plain SFT on this data is strong and keeps improving: 10 nominal epochs take the base model from 19.2% to 42.2% pass@1 and from 46.0% to 70.0% pass@8, and the loss is still falling at the end (Figure 1). So one might ask whether plain SFT was simply stopped too early. We trained it twice as long: at 20 nominal epochs it reaches 44.9% pass@1 and 75.0% pass@8, still below Plateau Dropping at 10 epochs (+3.9 ± 1.7 at pass@1, +3.0 ± 2.7 at pass@8, paired over tasks). Plateau Dropping at 10 epochs beats plain SFT at either budget with at most half the training. The 3-epoch Plateau Dropping point at the method's clip setting is pending.
+Plain SFT on this data is strong and keeps improving: 10 nominal epochs take the base model from 19.2% to 42.2% pass@1 and from 46.0% to 70.0% pass@8, and the loss is still falling at the end (Figure 1). So one might ask whether plain SFT was simply stopped too early. We trained it twice as long: at 20 nominal epochs it reaches 44.9% pass@1 and 75.0% pass@8, still below Plateau Dropping at 10 epochs (+3.9 ± 1.7 at pass@1, +3.0 ± 2.7 at pass@8, paired over tasks). Plateau Dropping at 10 epochs beats plain SFT at either budget with at most half the training. Plateau Dropping leads at both budgets: by 8.5 points at pass@1 (31.9% against 23.4%, ± 2.1) and 9.0 at pass@8 (67.0% against 58.0%, ± 4.3) after 3 epochs, and by 6.5 and 8.0 after 10.
 
 ### 3.3 Check 2: a tuned baseline
 
-The runs above use a learning rate of 1e-4, which turns out to be low for a 228-step run. Repeating the 3-epoch pair at 3e-4 (Table 1, rows marked LR 3e-4) lifts plain SFT by 9.1 points at pass@1 and 8.0 at pass@8, to 32.5% and 66.0%; it still sits 9.7 points below plain SFT at the default rate for 10 epochs, so the extra passes do most of the work there. Plateau Dropping at the same rate reaches 37.6% and 72.0%, ahead of plain SFT by 5.1 points at pass@1 (±1.8, paired over tasks) and 6.0 at pass@8 (±3.0): the gain survives a baseline trained at three times the rate. The same pair at 10 epochs is being evaluated.
+The runs above use a learning rate of 1e-4, which turns out to be low for a 228-step run. Repeating the 3-epoch pair at 3e-4 (Table 1, rows marked LR 3e-4; not shown in Figure 2) lifts plain SFT by 9.1 points at pass@1 and 8.0 at pass@8, to 32.5% and 66.0%; it still sits 9.7 points below plain SFT at the default rate for 10 epochs, so the extra passes do most of the work there. Plateau Dropping at the same rate reaches 37.6% and 72.0%, ahead of plain SFT by 5.1 points at pass@1 (±1.8, paired over tasks) and 6.0 at pass@8 (±3.0): the lead narrows from 8.5 and 9.0 at the default rate but survives a baseline trained at three times the rate. The same pair at 10 epochs is being evaluated.
 
 ### 3.4 A second dataset: terminal benchmarks
 
 ![Figure 3](/assets/img/blog/plateau-dropping/fig3_tb2_corrected.png)
 
-Figure 3. Terminal-Bench 2.0, pass@1 and pass@8 (%) against training length (66 and 220 steps) for plain SFT (red) and Plateau Dropping (green), averaged over 8 seeds; dashed: the base model. All 88 tasks (Section 2.4). Plateau Dropping runs are at gradient clip 4.0; its 66-step point at that clip is pending.
+Figure 3. Terminal-Bench 2.0, pass@1 and pass@8 (%) after 3 and 10 nominal epochs (66 and 220 steps) for plain SFT (red) and Plateau Dropping (green), averaged over 8 seeds; dashed: the base model. All 88 tasks (Section 2.4). Plateau Dropping at 220 steps is at gradient clip 4.0; at 66 steps the clip engages only on the same three early steps as for plain SFT (Section 2.4).
 {: .caption}
 
 ![Figure 4](/assets/img/blog/plateau-dropping/fig4_tblite_corrected.png)
 
-Figure 4. TB-Lite, pass@1 and pass@8 (%) against training length (66 and 220 steps) for plain SFT (red) and Plateau Dropping (green), averaged over 8 seeds; dashed: the base model. All 97 tasks (Section 2.4). Plateau Dropping runs are at gradient clip 4.0; its 66-step point at that clip is pending.
+Figure 4. TB-Lite, pass@1 and pass@8 (%) after 3 and 10 nominal epochs (66 and 220 steps) for plain SFT (red) and Plateau Dropping (green), averaged over 8 seeds; dashed: the base model. All 97 tasks (Section 2.4). Plateau Dropping at 220 steps is at gradient clip 4.0; at 66 steps the clip engages only on the same three early steps as for plain SFT (Section 2.4).
 {: .caption}
 
 **Table 2.** TB-Lite, pass@1 and pass@8 in %, 8 seeds, all 97 tasks (Section 2.4).
@@ -175,8 +175,8 @@ Figure 4. TB-Lite, pass@1 and pass@8 (%) against training length (66 and 220 ste
 | training length | model | pass@1 | pass@8 |
 |---|---|---|---|
 | none | base model | 16.6 | 50.5 |
-| 3 epochs (66 steps) | + SFT | 27.2 | 67.0 |
-| 3 epochs (66 steps) | + Plateau Dropping | [pending] | [pending] |
+| 3 epochs (66 steps) | + SFT | **27.2** | **67.0** |
+| 3 epochs (66 steps) | + Plateau Dropping | 25.4 | 59.8 |
 | 10 epochs (220 steps) | + SFT | 33.9 | 64.9 |
 | 10 epochs (220 steps) | + Plateau Dropping | **36.1** | **68.0** |
 
@@ -186,11 +186,11 @@ Figure 4. TB-Lite, pass@1 and pass@8 (%) against training length (66 and 220 ste
 |---|---|---|---|
 | none | base model | 7.1 | 28.4 |
 | 3 epochs (66 steps) | + SFT | 10.2 | 30.7 |
-| 3 epochs (66 steps) | + Plateau Dropping | [pending] | [pending] |
+| 3 epochs (66 steps) | + Plateau Dropping | **12.4** | **35.2** |
 | 10 epochs (220 steps) | + SFT | 16.8 | **39.8** |
 | 10 epochs (220 steps) | + Plateau Dropping | **17.5** | 38.6 |
 
-On the terminal data plain SFT goes from 27.2% to 33.9% pass@1 on TB-Lite and from 10.2% to 16.8% on Terminal-Bench 2.0 between 66 and 220 steps. At 220 steps Plateau Dropping is ahead on TB-Lite (36.1% against 33.9% pass@1, +2.2 ± 1.5 paired over tasks; 68.0% against 64.9% pass@8, +3.1 ± 3.0) and level on Terminal-Bench 2.0 (17.5% against 16.8% pass@1, +0.7 ± 1.3; 38.6% against 39.8% pass@8). The gains on the terminal data are smaller than on the SWE data, and neither is larger than two standard errors. The 66-step Plateau Dropping point at the method's clip setting is pending.
+On the terminal data plain SFT goes from 27.2% to 33.9% pass@1 on TB-Lite and from 10.2% to 16.8% on Terminal-Bench 2.0 between 66 and 220 steps. At 220 steps Plateau Dropping is ahead on TB-Lite (36.1% against 33.9% pass@1, +2.2 ± 1.5 paired over tasks; 68.0% against 64.9% pass@8, +3.1 ± 3.0) and level on Terminal-Bench 2.0 (17.5% against 16.8% pass@1, +0.7 ± 1.3; 38.6% against 39.8% pass@8). At 66 steps the picture is mixed: Plateau Dropping is behind on TB-Lite (25.4% against 27.2% pass@1, −1.8 ± 1.9; 59.8% against 67.0% pass@8, −7.2 ± 4.3) and ahead on Terminal-Bench 2.0 (12.4% against 10.2%, +2.1 ± 1.4; 35.2% against 30.7%, +4.5 ± 4.1). On the terminal data no difference in either direction is larger than two standard errors.
 
 ### 3.5 Baselines: TailSFT
 
@@ -225,7 +225,7 @@ The same 10-epoch pair is being trained from a stronger starting checkpoint (the
 
 ## 5. Conclusion
 
-Plateau Dropping is a small change to standard SFT: the trainer remembers each token's loss from its last two visits, and once that loss stops changing, the token is removed from the training loss until it changes again. On long-horizon agentic data it gives a better checkpoint from the same data and compute. At 10 nominal epochs on the SWE data it is 6.5 points above plain SFT at pass@1 and 8.0 at pass@8 (48.8% against 42.2%, 78.0% against 70.0%), with a training loss that looks the same, and the gain is largest at pass@8. Plain SFT trained twice as long still stays below it (Section 3.2), and at three times the learning rate the 3-epoch lead holds (+5.1 at pass@1, +6.0 at pass@8; Section 3.3). On the terminal benchmarks the gains are smaller: about 2 points at 220 steps on TB-Lite and none to speak of on Terminal-Bench 2.0 (Section 3.4). Sequence-level filtering of the same data (TailSFT) does not help (Section 3.5). The cells marked pending are Plateau Dropping runs not yet trained at the method's clip setting; the pair from a stronger starting checkpoint (Section 3.6) will be added when it finishes.
+Plateau Dropping is a small change to standard SFT: the trainer remembers each token's loss from its last two visits, and once that loss stops changing, the token is removed from the training loss until it changes again. On long-horizon agentic data it gives a better checkpoint from the same data and compute. At 10 nominal epochs on the SWE data it is 6.5 points above plain SFT at pass@1 and 8.0 at pass@8 (48.8% against 42.2%, 78.0% against 70.0%), with a training loss that looks the same, and the gain is largest at pass@8. Plain SFT trained twice as long still stays below it (Section 3.2), and at three times the learning rate the 3-epoch lead holds (+5.1 at pass@1, +6.0 at pass@8; Section 3.3). On the terminal benchmarks there is no consistent gain: every difference, in either direction, is within two standard errors (Section 3.4). Sequence-level filtering of the same data (TailSFT) does not help (Section 3.5). The pair from a stronger starting checkpoint (Section 3.6) will be added when it finishes.
 
 ## Appendix A: training bugs we found along the way
 
@@ -252,7 +252,7 @@ Figure 5. Left: training loss over all tokens on the SWE data for our first, bug
 | Plateau Dropping, clip 1.0 | 46.6 | 72.0 |
 | Plateau Dropping, clip 4.0 | **48.8** | **78.0** |
 
-Clip 4.0 beats clip 1.0 by 2.1 ± 1.7 points at pass@1 and 6.0 ± 2.3 at pass@8, paired over tasks. Every Plateau Dropping and TailSFT run of our first pass was trained at clip 1.0; at that setting Plateau Dropping was ahead of plain SFT by 8.5 points at pass@1 and 9.0 at pass@8 after 3 epochs on SWE-bench Verified, by 4.4 and 2.0 at 10 epochs, and ahead by 4.9 and 6.2 on TB-Lite at 220 steps. The TailSFT runs were clipped no more than plain SFT was (on 4% of logged steps on the SWE data, on the same three early steps on the terminal data) and stand as they are. Every Plateau Dropping run is being redone at clip 4.0, including the two on which the clip barely engaged at 1.0 (the 3-epoch SWE run, never; the 66-step terminal run, on the same three early steps as plain SFT), and only clip-4.0 runs appear in the main text. Normalising the kept-token loss by the full token count instead would remove the interaction by construction, since dropping would then never rescale the gradient; under Adam it should behave like the raised clip, and it has not been run.
+Clip 4.0 beats clip 1.0 by 2.1 ± 1.7 points at pass@1 and 6.0 ± 2.3 at pass@8, paired over tasks. Every Plateau Dropping and TailSFT run of our first pass was trained at clip 1.0; at that setting Plateau Dropping was ahead of plain SFT by 8.5 points at pass@1 and 9.0 at pass@8 after 3 epochs on SWE-bench Verified, by 4.4 and 2.0 at 10 epochs, and ahead by 4.9 and 6.2 on TB-Lite at 220 steps. The TailSFT runs were clipped no more than plain SFT was (on 4% of logged steps on the SWE data, on the same three early steps on the terminal data) and stand as they are. The 10-epoch Plateau Dropping runs were redone at clip 4.0, and only those appear in the main text; the two runs on which the clip barely engaged at 1.0 (the 3-epoch SWE run, never; the 66-step terminal run, on the same three early steps as plain SFT) stand as they are. Normalising the kept-token loss by the full token count instead would remove the interaction by construction, since dropping would then never rescale the gradient; under Adam it should behave like the raised clip, and it has not been run.
 
 **What the bugs did to our conclusions.** In the buggy runs the training loss flattened after one pass, and plain SFT barely moved the base model (19.5% pass@1 on SWE-bench Verified after 20 nominal epochs, against 19.3% for the base) while Plateau Dropping reached 31.1%. Both observations were the first bug: with the fixed trainer the loss falls throughout and plain SFT reaches 44.9% pass@1 and 75.0% pass@8. We do not have a complete account of why Plateau Dropping still improved under the bug. Its gradients are larger, because its loss is averaged over fewer, harder tokens, which would let more of its updates survive the rounding; but the fraction of weights that moved at all was the same in both arms, so that comparison was between two models that had barely trained, and its 10-point gap at 20 epochs does not survive the fix. The terminal-benchmark results of the buggy runs came from the same regime. What survives, once the gradient clip is set correctly for the method (item 5), is a lead of 6.5 points at pass@1 and 8.0 at pass@8 after 10 epochs on SWE-bench Verified. The ablations, the runs from a stronger starting checkpoint, and the comparison of RL started from plain SFT and from Plateau Dropping were all trained under the bugs, and we leave them out of this post until they are rerun (the RL runs themselves were unaffected; their SFT starting points were not). The fixes (fp32 master weights, the capacity-factor setting, the corrected scoring pass, and a gradient-clipping setting for the ablation of Appendix A, item 5) are in our fork of the trainer.
 
