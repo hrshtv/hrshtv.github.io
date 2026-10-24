@@ -311,6 +311,11 @@ body {
   background-color: #fff;
 }
 
+.post-content img.narrow { max-width: 55%; }
+@media (max-width: 767.98px) {
+  .post-content img.narrow { max-width: 100%; }
+}
+
 .post-content .caption {
   font-size: 0.9rem;
   line-height: 1.5;
