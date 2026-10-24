@@ -27,12 +27,11 @@ We in fact observe consistent gains for both pass@1 and pass@8 in some settings,
 
 <p class="post-toc-title">Contents</p>
 
-- [1. Introduction and motivation](#1-introduction-and-motivation)
+- [1. Introduction](#1-introduction)
 - [2. Method](#2-method)
   - [2.1 The plateau test](#21-the-plateau-test)
   - [2.2 What gets dropped](#22-what-gets-dropped)
-  - [2.3 Setup](#23-setup)
-  - [2.4 Evaluation](#24-evaluation)
+  - [2.3 Experimental Setup](#23-experimental-setup)
 - [3. Results](#3-results)
   - [3.1 SWE](#31-swe)
   - [3.2 Terminal](#32-terminal)
@@ -49,11 +48,11 @@ We in fact observe consistent gains for both pass@1 and pass@8 in some settings,
 
 ---
 
-## 1. Introduction and motivation
+## 1. Introduction
 
 **The sharpening problem.** Post-training starts with SFT on demonstrations, and what RL can find afterwards depends on what the SFT model still assigns probability to. SFT's loss pushes every demonstrated token toward probability 1, whether or not the model predicts it already. For a token the model already gets right, the gradient is small, but it is never zero, and on every visit it pushes the same way: up for the demonstrated token, down for every alternative. Several recent papers measure what this costs. SFT's gains at pass@1 come with losses at pass@k and in the diversity RL explores ([Dang et al., 2025](https://arxiv.org/abs/2504.10478)); limiting the model's confidence during fine-tuning improves reasoning under test-time compute ([Chen et al., 2025](https://arxiv.org/abs/2502.07154)); clipping the gradient of tokens the model already predicts gives a better initialisation for RL ([ICML 2026](https://icml.cc/virtual/2026/poster/61171)); and TailSFT ([Malladi et al., 2026](https://arxiv.org/abs/2608.25756)) drops the training sequences the model already fits for the same reason. Their shared reading is that SFT keeps spending gradient on what it has already taught, and that this makes the model sharper without making it better. We do not test that mechanism directly here. We measure how many training tokens are in the already-learned state on agent data, and ask whether dropping them from the loss, token by token, gives a better model.
 
-**Setting.** We fine-tune a 67B mixture-of-experts model (about 2B active parameters) on successful agent trajectories: 6.3k trajectories covering 1.6k command-line tasks, and 9.2k trajectories covering 7.0k software-engineering tasks. Vanilla SFT keeps learning for as long as we train it: on the SWE data the mean training loss falls from 0.55 on the first pass to 0.16 on the fourteenth (Figure 1a), and the evaluation scores rise with it (Section 3).
+**Setting.** We fine-tune a 67B mixture-of-experts model (about 2B active parameters) on successful agent trajectories: 6.3k trajectories covering 1.6k command-line tasks, and 9.2k trajectories covering 7.0k software-engineering tasks. Vanilla SFT keeps learning for as long as we train it: on the SWE data the mean training loss falls from 0.55 on the first pass to 0.35 on the seventh (Figure 1a), and the evaluation scores rise with it (Section 3).
 
 ![Figure 1](/assets/img/blog/plateau-dropping/fig1_losses_corrected.png)
 
@@ -108,7 +107,7 @@ where $$P_i$$ is treated as a constant, so no gradient flows through the selecti
 
 A token can only be dropped from its third visit, so nothing is dropped until every row has been seen twice: on the SWE data that is step 192 of a run, and until then a Plateau Dropping run is vanilla SFT (with the same data order, the two runs' losses agree step by step to within 0.001). Dropping then starts abruptly (Figure 1b): the kept fraction falls to 53% by step 227 and 38% by step 759. At the end of the 10-epoch run, 92% of the dropped tokens are dropped as learned, at a loss close to zero, and 8% as stuck at a higher loss (2.1 on average). The tokens still trained have a loss of 0.69 at step 228 and 0.63 at 760, while the loss over all tokens is 0.47 and 0.36; because the training loss is now an average over the harder tokens, it sits well above vanilla SFT's even though the loss over all tokens tracks vanilla SFT to within 0.02. On the terminal data, whose rows are shorter and revisited more often, the kept fraction falls further, to about 22% by step 220. The dropped set changes over time as tokens re-enter, so none of this shows that a fixed set of tokens stays learned.
 
-Our packer fills fixed-length rows (64k tokens on the SWE data, 32k on the terminal data) with whole trajectories, which leaves about 26% of each SWE row and 12% of each terminal row as padding, and the data loader samples rows with replacement. So "epochs" throughout this post are nominal token counts: one real pass over the SWE data is 103 steps, so 228 and 760 steps ("3 and 10 epochs") are 2.2 and 7.4 passes (and the 1,520-step vanilla SFT run quoted in Appendix A is 14.8); one pass over the terminal data is about 29 steps, so 66 and 220 steps are 2.3 and 7.6 passes. The plateau test counts visits, not epochs.
+Our packer fills fixed-length rows (64k tokens on the SWE data, 32k on the terminal data) with whole trajectories, which leaves about 26% of each SWE row and 12% of each terminal row as padding, and the data loader samples rows with replacement. So "epochs" throughout this post are nominal token counts: one real pass over the SWE data is 103 steps, so 228 and 760 steps ("3 and 10 epochs") are 2.2 and 7.4 passes; one pass over the terminal data is about 29 steps, so 66 and 220 steps are 2.3 and 7.6 passes. The plateau test counts visits, not epochs.
 
 Figure 2 splits the trained tokens of the best SWE run, after each pass over the data, into three groups: dropped as learned (the loss has stopped moving, below −log 0.9), dropped as stuck (it stopped moving at a higher loss), and still being learned. Nothing is dropped before step 192, a token's third visit. A quarter of the tokens are dropped as learned by the end of the second pass and nearly half by the end of the third; at the end of training 56% are dropped as learned, 5% as stuck, and 38% are still trained. The same token can sit in different groups at different positions: " the" is learned in 28% of its occurrences and stuck in 10%, against 56% and 5% for tokens overall. Figure 7 (Appendix C) colours every token of three randomly chosen assistant turns by its final state. Tool-call syntax, end-of-turn and thinking markers, and text the model copies from its context (the rest of an identifier once it has started it, values it just read in a tool output) are learned and dropped. Most of the reasoning prose is still being trained at the end. The stuck tokens sit where several continuations are equally valid: the first word of a reasoning sentence ("Then", "The", "Alright", "Also") or the verb that names what code does ("creates", "fires"). We read this as the late passes going to the reasoning rather than to the format; it is an interpretation of these examples, not a measured effect.
 
@@ -117,16 +116,16 @@ Figure 2 splits the trained tokens of the best SWE run, after each pass over the
 Figure 2. Plateau Dropping, 10 nominal epochs on the SWE data (LR 1e-4, clip 4.0): the share of trained tokens dropped as learned, dropped as stuck and still being learned at the end of each pass. Bars: the logged per-batch shares, averaged over the last 5 steps of each pass (103 steps).
 {: .caption}
 
-### 2.3 Setup
+### 2.3 Experimental Setup
 
 - **Model.** A 67B mixture-of-experts model with about 2B parameters active per token: [open-athena/Grug-67B-A2B-Datakit-SFT-262K-2026.09.21](https://huggingface.co/open-athena/Grug-67B-A2B-Datakit-SFT-262K-2026.09.21).
 - **Terminal data.** 6,301 successful trajectories (45M tokens, 1,610 tasks): 5,324 from the public [allenai/tmax-sft](https://huggingface.co/datasets/allenai/tmax-sft) dataset, written by a 27B teacher, and 977 of the base model's own successes on synthetic terminal tasks. Context 32k.
 - **SWE data.** 9,229 resolved trajectories (7,005 tasks) from the public [nvidia/Open-SWE-Traces](https://huggingface.co/datasets/nvidia/Open-SWE-Traces) dataset, restricted to one shell command per step to match our agent (319M tokens). Context 64k.
 - **Training.** Learning rate 1e-4, cosine schedule over the run with 3% warmup, AdamH, no weight decay, global gradient-norm clipping at 4.0 for the 10-epoch Plateau Dropping runs (Appendix A, item 5, explains why the usual 1.0 is wrong for them) and 1.0 for all other runs, whose gradient norm rarely reaches 1.0 (the exceptions are the learning-rate 3e-4 pairs, where both arms use 4.0, and the TailSFT runs at drop share 0.25 and per token, also at 4.0), bf16 compute with fp32 master weights and optimizer state, expert capacity factor 2.0 (no dropped token-to-expert assignments), router biases frozen, 16 nodes of 4 GPUs each. Vanilla SFT and Plateau Dropping runs of the same length share the data order.
-- **Compared models.** On the terminal data: SFT and Plateau Dropping for 3 and 10 nominal epochs (66 and 220 steps), and TailSFT for 3. On the SWE data: SFT and Plateau Dropping for 3 and 10 nominal epochs (228 and 760 steps), TailSFT for 3 (per trajectory at drop shares 0.5 and 0.25, and per token), the 3- and 10-epoch pairs again at a learning rate of 3e-4, and vanilla SFT for 20 nominal epochs (1,520 steps) as a longer-trained baseline. The 10-epoch Plateau Dropping models are runs at gradient clip 4.0. At 3 epochs the clip does not matter: the SWE run never reaches 1.0 and the terminal run reaches it only on the same three early steps as vanilla SFT, so those runs are at 1.0, like vanilla SFT and TailSFT, which reach it on no more than 4% of steps (Appendix A, item 5); the exceptions are the learning-rate 3e-4 pairs, where both arms use 4.0, and the TailSFT runs at drop share 0.25 and per token, also at 4.0.
+- **Compared models.** On the terminal data: SFT and Plateau Dropping for 3 and 10 nominal epochs (66 and 220 steps), and TailSFT for 3. On the SWE data: SFT and Plateau Dropping for 3 and 10 nominal epochs (228 and 760 steps), TailSFT for 3 (per trajectory at drop shares 0.5 and 0.25, and per token), and the 3- and 10-epoch pairs again at a learning rate of 3e-4. The 10-epoch Plateau Dropping models are runs at gradient clip 4.0. At 3 epochs the clip does not matter: the SWE run never reaches 1.0 and the terminal run reaches it only on the same three early steps as vanilla SFT, so those runs are at 1.0, like vanilla SFT and TailSFT, which reach it on no more than 4% of steps (Appendix A, item 5); the exceptions are the learning-rate 3e-4 pairs, where both arms use 4.0, and the TailSFT runs at drop share 0.25 and per token, also at 4.0.
 - **Harness.** We use the [mini-swe-agent](https://github.com/SWE-agent/mini-swe-agent) harness everywhere: all training trajectories are in its format, and all evaluations run in it. At each step the model writes its reasoning and one shell command, then sees the command's output.
 
-### 2.4 Evaluation
+## 3. Results
 
 We only focus on agentic capabilities in this work, and evaluate SWE and terminal capabilities.
 For evaluating SWE capabilities, we evaluate on a fixed random subset of 100 tasks for SWE-bench Verified.
@@ -137,8 +136,6 @@ Sandbox and API errors are counted as failures.
 We report pass@1 and pass@8 for all models.
 
 Note: while running SWE-bench Verified, we noticed that before running the tests, the standard Harbor task script deletes every additional file that the agent might have created and is not tracked via git. This ends up designating several correct fixes as failures. To prevent this, we keep all additional files except the ones touched by the task's test patch.
-
-## 3. Results
 
 ### 3.1 SWE
 
@@ -215,7 +212,7 @@ We have not yet run the 3x learning rate on the terminal data.
 
 ### 3.3 Baselines: TailSFT
 
-**Table 4.** TailSFT against vanilla SFT at 3 epochs (66 steps on the terminal data, 228 on the SWE data), pass@1 and pass@8 in %, averaged over 8 seeds. All rows of a benchmark use the same tasks (100, 88 and 97; Section 2.4). TailSFT drops half of each batch's trajectories, with the drop share ramped up linearly over the run, the setting the TailSFT paper selected for its math runs. We also ran a drop share of 0.25, the share the paper selected for code, held fixed with no ramp, on the SWE data only and at gradient clip 4.0. The per-token row applies the same rule to single tokens, with the base model's loss on each token as its reference and the drop share ramped from 0 to 0.5 over the run, also on the SWE data only and at clip 4.0.
+**Table 4.** TailSFT against vanilla SFT at 3 epochs (66 steps on the terminal data, 228 on the SWE data), pass@1 and pass@8 in %, averaged over 8 seeds. All rows of a benchmark use the same tasks (100, 88 and 97; Section 3). TailSFT drops half of each batch's trajectories, with the drop share ramped up linearly over the run, the setting the TailSFT paper selected for its math runs. We also ran a drop share of 0.25, the share the paper selected for code, held fixed with no ramp, on the SWE data only and at gradient clip 4.0. The per-token row applies the same rule to single tokens, with the base model's loss on each token as its reference and the drop share ramped from 0 to 0.5 over the run, also on the SWE data only and at clip 4.0.
 
 | benchmark | model | pass@1 | pass@8 |
 |---|---|---|---|
@@ -279,8 +276,6 @@ Figure 6. Left: training loss over all tokens on the SWE data for our first, bug
 
 Clip 4.0 beats clip 1.0 by 2.1 ± 1.7 points at pass@1 and 6.0 ± 2.3 at pass@8, paired over tasks. Every Plateau Dropping and TailSFT run of our first pass was trained at clip 1.0; at that setting Plateau Dropping was ahead of vanilla SFT by 8.5 points at pass@1 and 9.0 at pass@8 after 3 epochs on SWE-bench Verified, by 4.4 and 2.0 at 10 epochs, and ahead by 4.9 and 6.2 on TB-Lite at 220 steps. The TailSFT runs were clipped no more than vanilla SFT was (on 4% of logged steps on the SWE data, on the same three early steps on the terminal data) and stand as they are; the drop-share 0.25 and per-token TailSFT runs were trained at 4.0. The 10-epoch Plateau Dropping runs were redone at clip 4.0, and only those appear in the main text; the two runs on which the clip barely engaged at 1.0 (the 3-epoch SWE run, never; the 66-step terminal run, on the same three early steps as vanilla SFT) stand as they are. Normalising the kept-token loss by the full token count instead would remove the interaction by construction, since dropping would then never rescale the gradient; under Adam it should behave like the raised clip, and it has not been run.
 
-**What the bugs did to our conclusions.** In the buggy runs the training loss flattened after one pass, and vanilla SFT barely moved the base model (19.5% pass@1 on SWE-bench Verified after 20 nominal epochs, against 19.2% for the base) while Plateau Dropping reached 31.1%. Both observations were the first bug: with the fixed trainer the loss falls throughout and vanilla SFT reaches 44.9% pass@1 and 75.0% pass@8. We do not have a complete account of why Plateau Dropping still improved under the bug. Its gradients are larger, because its loss is averaged over fewer, harder tokens, which would let more of its updates survive the rounding; but the fraction of weights that moved at all was the same in both arms, so that comparison was between two models that had barely trained, and its 10-point gap at 20 epochs does not survive the fix. The terminal-benchmark results of the buggy runs came from the same regime. What survives, once the gradient clip is set correctly for the method (item 5), is a lead of 6.5 points at pass@1 and 8.0 at pass@8 after 10 epochs on SWE-bench Verified. The ablations, the runs from a stronger starting checkpoint, and the comparison of RL started from vanilla SFT and from Plateau Dropping were all trained under the bugs, and we leave them out of this post until they are rerun (the RL runs themselves were unaffected; their SFT starting points were not). The fixes (fp32 master weights, the capacity-factor setting, the corrected scoring pass, and a gradient-clipping setting for the ablation of Appendix A, item 5) are in our fork of the trainer.
-
 ## Appendix B: our data in context
 
 By the standards of public agentic SFT data, our datasets are small to mid-sized (Table 5). In trajectory count they are close to the sets several SWE agents were fine-tuned on (SWE-smith, R2E-Gym, SWE-Dev) and to the terminal set we draw from, and one to two orders of magnitude below the largest public releases (Open-SWE-Traces, Nemotron-Terminal-Corpus). None of the public releases reports a total token count.
@@ -303,7 +298,63 @@ By the standards of public agentic SFT data, our datasets are small to mid-sized
 
 ## Appendix C: annotated transcripts
 
-![Figure 7](/assets/img/blog/plateau-dropping/fig_token_excerpts.png){: .narrow}
+{% raw %}
+<div class="tok-legend"><span class="tok-l">dropped: learned</span><span class="tok-s">dropped: stuck</span><span class="tok-u">still learning</span><span class="tok-c">grey: context (tool output), not trained</span></div>
+<p class="tok-excerpt-title">Excerpt 1: 40% dropped: learned,  5% dropped: stuck,  55% still learning</p>
+<pre class="tok-excerpt"><span class="tok-c">&lt;hdr&gt;tool&lt;/hdr&gt;
+&lt;tool_response name=&quot;bash&quot;&gt;(no output)
+
+(exit_code=0)&lt;/tool_response&gt;&lt;eot&gt;
+&lt;hdr&gt;assistant&lt;/hdr&gt;
+</span><span class="tok-l">&lt;think&gt;</span><span class="tok-u">Now I</span><span class="tok-s"> can</span><span class="tok-u"> see the `registerKeep</span><span class="tok-l">AliveHook` function</span><span class="tok-u">. Let</span><span class="tok-l"> me</span><span class="tok-u"> understand the</span><span class="tok-s"> issue</span><span class="tok-u">.
+
+In the `register</span><span class="tok-l">KeepAliveHook</span><span class="tok-u">`</span><span class="tok-l"> function</span><span class="tok-s">,</span><span class="tok-u"> when</span><span class="tok-s"> a</span><span class="tok-u"> hook is registered with `onActivated` or</span><span class="tok-l"> `onDeactivated</span><span class="tok-u">`, it</span><span class="tok-s"> creates</span><span class="tok-u"> a `wrappedHook`</span><span class="tok-s"> (</span><span class="tok-u">with `__wd</span><span class="tok-l">c`</span><span class="tok-u"> = with deactivation</span><span class="tok-l"> check</span><span class="tok-u">) that:
+</span><span class="tok-l">1.</span><span class="tok-u"> Checks if the target instance is in a deactivated branch
+</span><span class="tok-l">2.</span><span class="tok-u"> If not, calls `hook()` directly
+
+</span><span class="tok-s">Then</span><span class="tok-u"> it calls `inject</span><span class="tok-l">Hook</span><span class="tok-u">(type</span><span class="tok-l">,</span><span class="tok-u"> wrappedHook, target</span><span class="tok-s">)`</span><span class="tok-u">.
+
+</span><span class="tok-s">The</span><span class="tok-u"> `inject</span><span class="tok-l">Hook`</span><span class="tok-u"> function wraps</span><span class="tok-l"> the</span><span class="tok-u"> hook with error</span><span class="tok-l"> handling</span><span class="tok-u"> (`__</span><span class="tok-l">weh</span><span class="tok-u">`</span><span class="tok-s">),</span><span class="tok-u"> so `call</span><span class="tok-l">WithAsyncErrorHandling</span><span class="tok-u">` is used. So</span><span class="tok-s"> the</span><span class="tok-u"> flow is:
+
+1</span><span class="tok-l">.</span><span class="tok-u"> `inject</span><span class="tok-l">Hook</span><span class="tok-u">(type</span><span class="tok-l">,</span><span class="tok-u"> wrapped</span><span class="tok-l">Hook, target)`</span><span class="tok-s"> creates</span><span class="tok-u"> `wrapped</span><span class="tok-l">Hook</span><span class="tok-u">.__</span><span class="tok-l">weh`</span><span class="tok-u"> which calls</span><span class="tok-l"> `callWithAsyncErrorHandling</span><span class="tok-u">(w</span><span class="tok-l">rappedHook,</span><span class="tok-u"> target</span><span class="tok-l">, type, args</span><span class="tok-u">)</span><span class="tok-l">`.
+2.</span><span class="tok-u"> When the hook</span><span class="tok-s"> fires</span><span class="tok-u">, `wrapped</span><span class="tok-l">Hook</span><span class="tok-u">.__</span><span class="tok-l">weh</span><span class="tok-u">` is</span><span class="tok-l"> called</span><span class="tok-s"> (</span><span class="tok-u">via the array of hooks in `target</span><span class="tok-l">[type]`</span><span class="tok-u">).
+</span><span class="tok-l">3.</span><span class="tok-u"> `call</span><span class="tok-l">WithAsyncErrorHandling</span><span class="tok-s">(w</span><span class="tok-l">rappedHook</span><span class="tok-u">, ...</span><span class="tok-l">)`</span><span class="tok-u"> calls `wrapped</span><span class="tok-l">Hook</span><span class="tok-u">()`,</span><span class="tok-l"> which</span><span class="tok-u"> checks the de</span><span class="tok-l">activation</span><span class="tok-u"> branch, then</span><span class="tok-l"> calls</span><span class="tok-u"> the original</span><span class="tok-l"> `hook</span><span class="tok-u">()`.
+
+Now, the issue is about async functions. Let me look</span><span class="tok-l"> at</span><span class="tok-s"> the</span><span class="tok-u"> `call</span><span class="tok-l">WithAsyncErrorHandling`</span><span class="tok-u"> function in</span><span class="tok-s"> `</span><span class="tok-l">errorHandling.ts</span><span class="tok-u">`.</span><span class="tok-l">&lt;/think&gt;</span><span class="tok-u">Now let</span><span class="tok-l"> me</span><span class="tok-u"> look</span><span class="tok-l"> at the</span><span class="tok-u"> error handling file which is central</span><span class="tok-l"> to</span><span class="tok-u"> this</span><span class="tok-l"> issue.&lt;tool_call&gt;
+{&quot;name&quot;: &quot;bash&quot;, &quot;arguments&quot;: {&quot;command&quot;: &quot;cat /testbed/packages/runtime-core/src/errorHandling.ts&quot;}}
+&lt;/tool_call&gt;&lt;eot&gt;</span></pre>
+<p class="tok-excerpt-title">Excerpt 2: 69% dropped: learned,  3% dropped: stuck,  28% still learning</p>
+<pre class="tok-excerpt"><span class="tok-c">JSON dict: &#x27;{&quot;a&quot;: true, &quot;b&quot;: null}&#x27;
+JSON list: &#x27;[&quot;1&quot;, true, null]&#x27;
+Plain str: &#x27;my param&#x27;
+Int infer: 1234
+Disabled: &#x27;{&quot;a&quot;: true}&#x27;
+
+
+(exit_code=0)&lt;/tool_response&gt;&lt;eot&gt;
+&lt;hdr&gt;assistant&lt;/hdr&gt;
+</span><span class="tok-l">&lt;think&gt;</span><span class="tok-u">Confirmed. Currently</span><span class="tok-s">:
+</span><span class="tok-l">-</span><span class="tok-u"> Python dict works:</span><span class="tok-l"> `{&#x27;a&#x27;: True, &#x27;b&#x27;: None}`
+- JSON dict</span><span class="tok-u"> fails:</span><span class="tok-s"> returns</span><span class="tok-u"> `&#x27;</span><span class="tok-l">{&quot;a&quot;: true, &quot;b&quot;: null}&#x27;</span><span class="tok-u">`</span><span class="tok-l"> (</span><span class="tok-u">string</span><span class="tok-l">)
+- JSON list fails: returns</span><span class="tok-u"> `&#x27;</span><span class="tok-l">[&quot;1&quot;, true, null]&#x27;` (string</span><span class="tok-u">)
+
+</span><span class="tok-s">Alright</span><span class="tok-l">, let</span><span class="tok-u">&#x27;s implement</span><span class="tok-l"> the fix.</span><span class="tok-u"> Add</span><span class="tok-l"> `import json</span><span class="tok-u">` and</span><span class="tok-l"> modify `_infer_param_type</span><span class="tok-u">` to fall</span><span class="tok-l"> back to</span><span class="tok-u"> `</span><span class="tok-l">json.loads</span><span class="tok-s">`.
+
+</span><span class="tok-u">First let&#x27;s check the</span><span class="tok-s"> import</span><span class="tok-u"> section.</span><span class="tok-l">&lt;/think&gt;</span><span class="tok-u">Confirmed the</span><span class="tok-l"> issue.</span><span class="tok-u"> Now</span><span class="tok-l"> let me</span><span class="tok-u"> implement</span><span class="tok-l"> the fix</span><span class="tok-u">. I&#x27;ll add the</span><span class="tok-l"> `json` import and</span><span class="tok-u"> modify `_</span><span class="tok-l">infer_param_type` to</span><span class="tok-u"> fall</span><span class="tok-l"> back to</span><span class="tok-u"> `</span><span class="tok-l">json.loads`</span><span class="tok-u"> when</span><span class="tok-l"> `literal_eval` fails.</span><span class="tok-u">&lt;tool_call&gt;</span><span class="tok-l">
+{&quot;name&quot;: &quot;bash&quot;, &quot;arguments&quot;: {&quot;command&quot;: &quot;cd /testbed &amp;&amp;</span><span class="tok-u"> sed</span><span class="tok-l"> -</span><span class="tok-u">n</span><span class="tok-l"> &#x27;</span><span class="tok-u">19</span><span class="tok-l">,</span><span class="tok-u">26</span><span class="tok-l">p&#x27; toolium/utils/dataset.py</span><span class="tok-u">&quot;}}
+</span><span class="tok-l">&lt;/tool_call&gt;&lt;eot&gt;</span></pre>
+<p class="tok-excerpt-title">Excerpt 3: 42% dropped: learned,  7% dropped: stuck,  51% still learning</p>
+<pre class="tok-excerpt"><span class="tok-c">&lt;hdr&gt;tool&lt;/hdr&gt;
+&lt;tool_response name=&quot;bash&quot;&gt;(no output)
+
+(exit_code=0)&lt;/tool_response&gt;&lt;eot&gt;
+&lt;hdr&gt;assistant&lt;/hdr&gt;
+</span><span class="tok-l">&lt;think&gt;</span><span class="tok-u">Interesting — the</span><span class="tok-s"> one</span><span class="tok-u">-argument form of</span><span class="tok-l"> `</span><span class="tok-u">where` in `ops</span><span class="tok-l">.py`</span><span class="tok-u"> already</span><span class="tok-s"> implements</span><span class="tok-u"> a non-zero-like behavior using `j</span><span class="tok-l">np</span><span class="tok-u">.where(condition</span><span class="tok-l">.array</span><span class="tok-u">, size=new</span><span class="tok-l">_axis</span><span class="tok-u">.size,</span><span class="tok-l"> fill_value=fill</span><span class="tok-u">_value</span><span class="tok-s">)</span><span class="tok-u">`. This is a</span><span class="tok-s"> great</span><span class="tok-u"> pattern to follow for `</span><span class="tok-l">nonzero</span><span class="tok-u">`.
+
+Let&#x27;s take</span><span class="tok-l"> a</span><span class="tok-u"> look</span><span class="tok-l"> at</span><span class="tok-u"> the entire</span><span class="tok-l"> `</span><span class="tok-u">unique` function and other related parts to understand the</span><span class="tok-s"> pattern being</span><span class="tok-l"> used</span><span class="tok-u">.</span><span class="tok-s"> I</span><span class="tok-l">&#x27;ll</span><span class="tok-s"> check</span><span class="tok-u"> the</span><span class="tok-s"> el</span><span class="tok-l">ided</span><span class="tok-u"> middle portion of ops</span><span class="tok-l">.py.&lt;/think&gt;</span><span class="tok-u">The `where</span><span class="tok-l">`</span><span class="tok-u"> function already shows the pattern for</span><span class="tok-s"> `</span><span class="tok-u">j</span><span class="tok-l">np.where</span><span class="tok-u">(condition,</span><span class="tok-l"> size</span><span class="tok-u">=...,</span><span class="tok-l"> fill_value=...)</span><span class="tok-u">`.</span><span class="tok-l"> Let me</span><span class="tok-u"> see</span><span class="tok-l"> the</span><span class="tok-u"> el</span><span class="tok-l">ided</span><span class="tok-u"> middle portion</span><span class="tok-l"> of</span><span class="tok-u"> `ops</span><span class="tok-l">.py</span><span class="tok-u">` to fully</span><span class="tok-l"> understand</span><span class="tok-u"> the `unique</span><span class="tok-l">`</span><span class="tok-u"> function and</span><span class="tok-s"> its patterns</span><span class="tok-l">.&lt;tool_call&gt;
+{&quot;name&quot;: &quot;bash&quot;, &quot;arguments&quot;: {&quot;command&quot;: &quot;cd /testbed &amp;&amp; sed -n &#x27;</span><span class="tok-u">140</span><span class="tok-l">,</span><span class="tok-u">330</span><span class="tok-l">p&#x27; src/haliax/ops.py&quot;}}
+&lt;/tool_call&gt;&lt;eot&gt;</span></pre>
+{% endraw %}
 
 Figure 7. Three assistant turns from the SWE training data, every token coloured by its state at the end of the 10-epoch Plateau Dropping run: dropped as learned (green), dropped as stuck (amber), still learning (blue); grey text is untrained context (tool output). Turns were drawn at random (seed 0) among those with 120 to 320 trained tokens that contain both reasoning and a tool call; they are not hand-picked. Special tokens (&lt;think&gt;, &lt;tool_call&gt;, &lt;eot&gt;) are shown by name.
 {: .caption}

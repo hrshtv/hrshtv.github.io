@@ -311,11 +311,6 @@ body {
   background-color: #fff;
 }
 
-.post-content img.narrow { max-width: 55%; }
-@media (max-width: 767.98px) {
-  .post-content img.narrow { max-width: 100%; }
-}
-
 .post-content .caption {
   font-size: 0.9rem;
   line-height: 1.5;
@@ -359,6 +354,24 @@ body {
   padding: 0;
   background: none;
 }
+
+/* Annotated transcripts: token states (semi-transparent so they read in light and dark themes) */
+.post-content .tok-legend { font-size: 0.85rem; margin: 1rem 0 0.5rem; }
+.post-content .tok-legend span { padding: 1px 6px; border-radius: 3px; margin-right: 0.4rem; }
+.post-content .tok-excerpt-title { font-size: 0.85rem; color: var(--text-light-color); margin: 1.25rem 0 0.25rem; }
+.post-content pre.tok-excerpt {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  background-color: transparent;
+  border: 1px solid var(--nav-bg-color);
+  margin-bottom: 0.5rem;
+}
+.post-content .tok-l { background-color: rgba(60, 170, 100, 0.28); }
+.post-content .tok-s { background-color: rgba(240, 150, 40, 0.45); }
+.post-content .tok-u { background-color: rgba(70, 130, 210, 0.25); }
+.post-content .tok-c { color: var(--text-light-color); }
 
 .post-content .highlight {
   color: inherit !important;
