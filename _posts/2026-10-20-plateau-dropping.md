@@ -114,7 +114,7 @@ Figure 2 splits the trained tokens of the best SWE run, after each pass over the
 
 ![Figure 2](/assets/img/blog/plateau-dropping/fig_token_bands.png)
 
-Figure 2. Plateau Dropping, 10 nominal epochs on the SWE data (LR 1e-4, clip 4.0): token states after each pass. Bars: the logged per-batch shares, averaged over the last 5 steps of each pass (103 steps). Cards: every trained token's state at its last visit, from the run's final per-token history, with each band's most frequent tokens and its most over-represented ones (×k = k times as common in the band as among all trained tokens, for tokens that are at least 0.05% of the band). The per-token history is kept only at the end of training, so the cards describe the final state.
+Figure 2. Plateau Dropping, 10 nominal epochs on the SWE data (LR 1e-4, clip 4.0): the share of trained tokens dropped as learned, dropped as stuck and still being learned at the end of each pass. Bars: the logged per-batch shares, averaged over the last 5 steps of each pass (103 steps).
 {: .caption}
 
 ### 2.3 Setup
