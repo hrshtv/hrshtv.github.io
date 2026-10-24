@@ -41,6 +41,7 @@ We in fact observe consistent gains for both pass@1 and pass@8 in some settings,
 - [5. Conclusion](#5-conclusion)
 - [Appendix A: training bugs we found along the way](#appendix-a-training-bugs-we-found-along-the-way)
 - [Appendix B: our data in context](#appendix-b-our-data-in-context)
+- [Appendix C: annotated transcripts](#appendix-c-annotated-transcripts)
 - [References](#references)
 
 </div>
@@ -109,16 +110,11 @@ A token can only be dropped from its third visit, so nothing is dropped until ev
 
 Our packer fills fixed-length rows (64k tokens on the SWE data, 32k on the terminal data) with whole trajectories, which leaves about 26% of each SWE row and 12% of each terminal row as padding, and the data loader samples rows with replacement. So "epochs" throughout this post are nominal token counts: one real pass over the SWE data is 103 steps, so 228 and 760 steps ("3 and 10 epochs") are 2.2 and 7.4 passes (and the 1,520-step vanilla SFT run quoted in Appendix A is 14.8); one pass over the terminal data is about 29 steps, so 66 and 220 steps are 2.3 and 7.6 passes. The plateau test counts visits, not epochs.
 
-Figure 2 splits the trained tokens of the best SWE run, after each pass over the data, into three groups: dropped as learned (the loss has stopped moving, below −log 0.9), dropped as stuck (it stopped moving at a higher loss), and still being learned. Nothing is dropped before step 192, a token's third visit. A quarter of the tokens are dropped as learned by the end of the second pass and nearly half by the end of the third; at the end of training 56% are dropped as learned, 5% as stuck, and 38% are still trained. The same token can sit in different groups at different positions: " the" is learned in 28% of its occurrences and stuck in 10%, against 56% and 5% for tokens overall. Figure 3 colours every token of three randomly chosen assistant turns by its final state. Tool-call syntax, end-of-turn and thinking markers, and text the model copies from its context (the rest of an identifier once it has started it, values it just read in a tool output) are learned and dropped. Most of the reasoning prose is still being trained at the end. The stuck tokens sit where several continuations are equally valid: the first word of a reasoning sentence ("Then", "The", "Alright", "Also") or the verb that names what code does ("creates", "fires"). We read this as the late passes going to the reasoning rather than to the format; it is an interpretation of these examples, not a measured effect.
+Figure 2 splits the trained tokens of the best SWE run, after each pass over the data, into three groups: dropped as learned (the loss has stopped moving, below −log 0.9), dropped as stuck (it stopped moving at a higher loss), and still being learned. Nothing is dropped before step 192, a token's third visit. A quarter of the tokens are dropped as learned by the end of the second pass and nearly half by the end of the third; at the end of training 56% are dropped as learned, 5% as stuck, and 38% are still trained. The same token can sit in different groups at different positions: " the" is learned in 28% of its occurrences and stuck in 10%, against 56% and 5% for tokens overall. Figure 7 (Appendix C) colours every token of three randomly chosen assistant turns by its final state. Tool-call syntax, end-of-turn and thinking markers, and text the model copies from its context (the rest of an identifier once it has started it, values it just read in a tool output) are learned and dropped. Most of the reasoning prose is still being trained at the end. The stuck tokens sit where several continuations are equally valid: the first word of a reasoning sentence ("Then", "The", "Alright", "Also") or the verb that names what code does ("creates", "fires"). We read this as the late passes going to the reasoning rather than to the format; it is an interpretation of these examples, not a measured effect.
 
 ![Figure 2](/assets/img/blog/plateau-dropping/fig_token_bands.png)
 
 Figure 2. Plateau Dropping, 10 nominal epochs on the SWE data (LR 1e-4, clip 4.0): token states after each pass. Bars: the logged per-batch shares, averaged over the last 5 steps of each pass (103 steps). Cards: every trained token's state at its last visit, from the run's final per-token history, with each band's most frequent tokens and its most over-represented ones (×k = k times as common in the band as among all trained tokens, for tokens that are at least 0.05% of the band). The per-token history is kept only at the end of training, so the cards describe the final state.
-{: .caption}
-
-![Figure 3](/assets/img/blog/plateau-dropping/fig_token_excerpts.png){: .narrow}
-
-Figure 3. Three assistant turns from the SWE training data, every token coloured by its state at the end of the 10-epoch Plateau Dropping run: dropped as learned (green), dropped as stuck (amber), still learning (blue); grey text is untrained context (tool output). Turns were drawn at random (seed 0) among those with 120 to 320 trained tokens that contain both reasoning and a tool call; they are not hand-picked. Special tokens (&lt;think&gt;, &lt;tool_call&gt;, &lt;eot&gt;) are shown by name.
 {: .caption}
 
 ### 2.3 Setup
@@ -133,7 +129,8 @@ Figure 3. Three assistant turns from the SWE training data, every token coloured
 ### 2.4 Evaluation
 
 We only focus on agentic capabilities in this work, and evaluate SWE and terminal capabilities.
-For evaluating SWE capabilities, we evaluate on a fixed random subset of 100 tasks for SWE-bench Verified, 89 tasks from Terminal-Bench 2.0, and 100 tasks from [OpenThoughts-TBLite](https://huggingface.co/datasets/open-thoughts/OpenThoughts-TBLite).
+For evaluating SWE capabilities, we evaluate on a fixed random subset of 100 tasks for SWE-bench Verified.
+For evaluating terminal capabilities, we use 89 tasks from Terminal-Bench 2.0 and 100 tasks from [OpenThoughts-TBLite](https://huggingface.co/datasets/open-thoughts/OpenThoughts-TBLite).
 We use the [mini-swe-agent](https://github.com/SWE-agent/mini-swe-agent) harness for all tasks.
 Terminal tasks are run with 3x the default time limits, and when any agent hits the time limit, its final state is scored.
 Sandbox and API errors are counted as failures.
@@ -145,9 +142,9 @@ Note: while running SWE-bench Verified, we noticed that before running the tests
 
 ### 3.1 SWE
 
-![Figure 4](/assets/img/blog/plateau-dropping/fig5_swebench_corrected.png)
+![Figure 3](/assets/img/blog/plateau-dropping/fig5_swebench_corrected.png)
 
-Figure 4. SWE-bench Verified (random 100 tasks), pass@1 and pass@8 (%) after 3 and 10 epochs for vanilla SFT (red) and Plateau Dropping (green), 8 seeds, all 100 tasks; dashed line: the base model.
+Figure 3. SWE-bench Verified (random 100 tasks), pass@1 and pass@8 (%) after 3 and 10 epochs for vanilla SFT (red) and Plateau Dropping (green), 8 seeds, all 100 tasks; dashed line: the base model.
 {: .caption}
 
 Training for 10 epochs outperforms 3 epochs for both vanilla SFT and Plateau Dropping.
@@ -155,11 +152,12 @@ Vanilla SFT gains 23.0 points in pass@1 and 24.0 points in pass@8 over the base 
 Plateau Dropping further gains 6.5 points in pass@1 and 8.0 points in pass@8 over vanilla SFT.
 We observe that the default learning rate we use (1e-4) for vanilla SFT is actually suboptimal, and using a 3x learning rate performs much better, with vanilla SFT getting 32.5% pass@1 and 66.0% pass@8 at 3 epochs and 50.5% pass@1 and 74.0% pass@8 at 10 epochs.
 The same learning rate also improves Plateau Dropping, where it gets 37.6% pass@1 and 72.0% pass@8 at 3 epochs and 50.4% pass@1 and 72.0% pass@8 at 10 epochs.
-For pass@8, Plateau Dropping with the original learning rate continues to be the best performing approach, achieving +4.0 points over vanilla SFT at 10 epochs.
+For pass@8, Plateau Dropping with the original learning rate continues to be the best-performing approach, achieving +4.0 points over vanilla SFT at 10 epochs.
 We are continuing to run more learning rate ablations for both vanilla SFT and Plateau Dropping.
-Note that it is uncommon in prior work to train for as long as 10 epochs (agentic SFT recipes mostly train for 2 to 5: 2 in [R2E-Gym](https://arxiv.org/abs/2504.07164), [Nemotron-Terminal](https://arxiv.org/abs/2602.21193) and [Tmax](https://arxiv.org/abs/2606.23321), up to 3 in [SWE-smith](https://arxiv.org/abs/2504.21798), 3 in [Skywork-SWE](https://arxiv.org/abs/2506.19290), up to 5 in [SWE-Gym](https://arxiv.org/abs/2412.21139), 3 and 5 for the [SWE-rebench OpenHands](https://nebius.com/blog/posts/openhands-trajectories-with-qwen3-coder-480b) models, and 5 for [OpenThinkerAgent-32B](https://huggingface.co/open-thoughts/OpenThinkerAgent-32B); the longest we found are 7 in the [OpenThoughts-Agent](https://arxiv.org/abs/2606.24855) ablations and 8 for the 32B model of [SWE-Dev](https://arxiv.org/abs/2506.07636)), but we find that this might work the best, especially when running SFT to achieve specialization in a domain (here, agentic tasks) where the data might not be as vast.
 
-**Table 1.** SWE-bench Verified, pass@1 and pass@8 in %, 8 seeds, all 100 tasks. Rows marked LR 3e-4 were trained at three times the default learning rate; at that rate vanilla SFT's gradient norm exceeds 1.0 on 43% of its steps, so both arms of those rows use clip 4.0, whereas at the default rate vanilla SFT uses the standard clip of 1.0 (Section 2.3). The 10-epoch Plateau Dropping row is a run at gradient clip 4.0; the 3-epoch Plateau Dropping row at the default rate is at 1.0, where the clip does not engage. Bold marks the best value at each training length.
+Note that it is uncommon in prior work to train for as long as 10 epochs (agentic SFT recipes mostly train for 2 to 3: 2 in [R2E-Gym](https://arxiv.org/abs/2504.07164), [Nemotron-Terminal](https://arxiv.org/abs/2602.21193) and [Tmax](https://arxiv.org/abs/2606.23321), up to 3 in [SWE-smith](https://arxiv.org/abs/2504.21798)), but we find that this might work the best, especially when running SFT to achieve specialization in a domain (here, agentic tasks) where the data might not be a lot.
+
+**Table 1.** SWE-bench Verified, pass@1 and pass@8 in %, 8 seeds, all 100 tasks. Rows marked LR 3e-4 were trained at three times the default learning rate. Bold marks the best value at each training length.
 
 | training length | model | pass@1 | pass@8 |
 |---|---|---|---|
@@ -172,26 +170,26 @@ Note that it is uncommon in prior work to train for as long as 10 epochs (agenti
 | 10 epochs | + Plateau Dropping | **48.8** | **78.0** |
 | 10 epochs, LR 3e-4 | + SFT | **50.5** | **74.0** |
 | 10 epochs, LR 3e-4 | + Plateau Dropping | 50.4 | 72.0 |
+| 10 epochs, LR 3e-4 | + Plateau Dropping | 50.4 | 72.0 |
 
 ### 3.2 Terminal
 
-![Figure 5](/assets/img/blog/plateau-dropping/fig3_tb2_corrected.png)
+![Figure 4](/assets/img/blog/plateau-dropping/fig3_tb2_corrected.png)
 
-Figure 5. Terminal-Bench 2.0, pass@1 and pass@8 (%) after 3 and 10 epochs for vanilla SFT (red) and Plateau Dropping (green), 8 seeds; dashed line: the base model. All 88 tasks.
+Figure 4. Terminal-Bench 2.0, pass@1 and pass@8 (%) after 3 and 10 epochs for vanilla SFT (red) and Plateau Dropping (green), 8 seeds; dashed line: the base model. All 88 tasks.
 {: .caption}
 
-![Figure 6](/assets/img/blog/plateau-dropping/fig4_tblite_corrected.png)
+![Figure 5](/assets/img/blog/plateau-dropping/fig4_tblite_corrected.png)
 
-Figure 6. TB-Lite, pass@1 and pass@8 (%) after 3 and 10 epochs for vanilla SFT (red) and Plateau Dropping (green), averaged over 8 seeds; dashed line: the base model. All 97 tasks.
+Figure 5. TB-Lite, pass@1 and pass@8 (%) after 3 and 10 epochs for vanilla SFT (red) and Plateau Dropping (green), averaged over 8 seeds; dashed line: the base model. All 97 tasks.
 {: .caption}
 
 On the terminal benchmarks, the gains from Plateau Dropping are smaller and less consistent than on SWE.
 Training for 10 epochs outperforms 3 epochs for both vanilla SFT and Plateau Dropping, except for vanilla SFT at pass@8 on TB-Lite (64.9% against 67.0%).
 At 10 epochs, vanilla SFT gains 17.3 points in pass@1 and 14.4 points in pass@8 over the base model on TB-Lite, and 9.7 and 11.4 points on Terminal-Bench 2.0.
-On TB-Lite, Plateau Dropping further gains 2.2 points in pass@1 (±1.5, paired over tasks) and 3.1 points in pass@8 (±3.0) over vanilla SFT at 10 epochs.
-On Terminal-Bench 2.0, it is level with vanilla SFT at 10 epochs: 0.7 points ahead in pass@1 (±1.3) and 1.1 points behind in pass@8.
-At 3 epochs the picture is mixed: Plateau Dropping is behind vanilla SFT on TB-Lite (−1.8 ± 1.9 in pass@1, −7.2 ± 4.3 in pass@8) and ahead on Terminal-Bench 2.0 (+2.1 ± 1.4 and +4.5 ± 4.1).
-No difference on the terminal benchmarks, in either direction, is larger than two standard errors.
+On TB-Lite, Plateau Dropping further gains 2.2 points in pass@1 and 3.1 points in pass@8 over vanilla SFT at 10 epochs.
+On Terminal-Bench 2.0, it is level with vanilla SFT at 10 epochs.
+At 3 epochs the picture is mixed: Plateau Dropping is behind vanilla SFT on TB-Lite (−7.2 pass@8) and ahead on Terminal-Bench 2.0 (+2.1 and +4.5).
 We have not yet run the 3x learning rate on the terminal data.
 
 **Table 2.** TB-Lite, pass@1 and pass@8 in %, 8 seeds, all 97 tasks.
@@ -258,12 +256,12 @@ Plateau Dropping is a small change to standard SFT: the trainer remembers each t
 
 Our first runs were all on one cluster. When we ported the setup to a second cluster to reproduce them, the Plateau Dropping result came out 4 points lower, and the search for that difference found two bugs in the trainer that had affected every one of those runs, plus two smaller issues. All four are fixed; both clusters now run byte-identical trainer code, and every run in this post passed an audit (no restarts, no non-finite losses, vanilla and Plateau Dropping losses identical step by step until dropping starts, every exported checkpoint validated against the training checkpoint).
 
-![Figure 7](/assets/img/blog/plateau-dropping/fig_bugs_loss_curves.png)
+![Figure 6](/assets/img/blog/plateau-dropping/fig_bugs_loss_curves.png)
 
-Figure 7. Left: training loss over all tokens on the SWE data for our first, buggy runs (dashed and dotted, both clusters, vanilla SFT and Plateau Dropping in two data orders) and the fixed runs (solid): the buggy runs stay at 0.54 to 0.55 for 1,520 steps; the fixed runs fall to 0.15 to 0.18. Right: the fraction of tokens Plateau Dropping keeps, and the loss of the dropped tokens, in the buggy and the fixed runs.
+Figure 6. Left: training loss over all tokens on the SWE data for our first, buggy runs (dashed and dotted, both clusters, vanilla SFT and Plateau Dropping in two data orders) and the fixed runs (solid): the buggy runs stay at 0.54 to 0.55 for 1,520 steps; the fixed runs fall to 0.15 to 0.18. Right: the fraction of tokens Plateau Dropping keeps, and the loss of the dropped tokens, in the buggy and the fixed runs.
 {: .caption}
 
-**1. The master weights were bf16.** The script that imported the base checkpoint wrote the weights in bf16, and the trainer kept whatever precision it loaded, so the optimizer applied its fp32 updates to bf16 weights and rounded the result back to bf16 at every step. A bf16 number has an 8-bit mantissa, so any update smaller than about 0.4% of a weight's magnitude rounds to zero, which is most Adam updates at a learning rate of 1e-4. After 1,520 steps, 92 to 95% of the weights were bit-identical to the base model; the training loss stopped at 0.55 (Figure 7) and the models barely changed. The fixed trainer keeps fp32 master weights (the standard mixed-precision recipe: bf16 compute, fp32 weights and optimizer state); in the fixed runs 65% of the weights have changed after 228 steps, 83% after 760 and 89% after 1,520, measured on the bf16 export. Every one of our first runs was trained this way: vanilla SFT, Plateau Dropping, TailSFT and its variants, the ablations, the runs from a stronger starting checkpoint, and the SFT starting points of the RL runs. (The Qwen3-8B experiments we ran alongside used a different trainer and were not affected.)
+**1. The master weights were bf16.** The script that imported the base checkpoint wrote the weights in bf16, and the trainer kept whatever precision it loaded, so the optimizer applied its fp32 updates to bf16 weights and rounded the result back to bf16 at every step. A bf16 number has an 8-bit mantissa, so any update smaller than about 0.4% of a weight's magnitude rounds to zero, which is most Adam updates at a learning rate of 1e-4. After 1,520 steps, 92 to 95% of the weights were bit-identical to the base model; the training loss stopped at 0.55 (Figure 6) and the models barely changed. The fixed trainer keeps fp32 master weights (the standard mixed-precision recipe: bf16 compute, fp32 weights and optimizer state); in the fixed runs 65% of the weights have changed after 228 steps, 83% after 760 and 89% after 1,520, measured on the bf16 export. Every one of our first runs was trained this way: vanilla SFT, Plateau Dropping, TailSFT and its variants, the ablations, the runs from a stronger starting checkpoint, and the SFT starting points of the RL runs. (The Qwen3-8B experiments we ran alongside used a different trainer and were not affected.)
 
 **2. The mixture of experts dropped token-to-expert assignments.** The model was trained with an expert capacity factor of 1.0, so whenever a batch routed more tokens to an expert than its even share, the excess assignments were dropped. On this data 14 to 19% of assignments were dropped, and the fraction depended on the hardware's rounding (18.6% on the GH200 cluster, 15.5% on the GB200 cluster), which cost 0.067 to 0.082 nats of loss and is what made the two clusters disagree. With the capacity factor raised to 2.0 the overflow is 0.16% at the start of a run and 0 by the end, the two clusters agree to four decimals, and the trainer's loss matches an independent inference implementation to 0.0002.
 
@@ -303,6 +301,13 @@ By the standards of public agentic SFT data, our datasets are small to mid-sized
 | **ours, terminal data** | terminal | 1,610 | 6,301 | 45M (28M trained) |
 | **ours, SWE data** | SWE | 7,005 | 9,229 | 319M |
 
+## Appendix C: annotated transcripts
+
+![Figure 7](/assets/img/blog/plateau-dropping/fig_token_excerpts.png){: .narrow}
+
+Figure 7. Three assistant turns from the SWE training data, every token coloured by its state at the end of the 10-epoch Plateau Dropping run: dropped as learned (green), dropped as stuck (amber), still learning (blue); grey text is untrained context (tool output). Turns were drawn at random (seed 0) among those with 120 to 320 trained tokens that contain both reasoning and a tool call; they are not hand-picked. Special tokens (&lt;think&gt;, &lt;tool_call&gt;, &lt;eot&gt;) are shown by name.
+{: .caption}
+
 ## References
 
 1. Malladi, S. et al. (2026). TailSFT: Filtered Fine-Tuning Improves Post-Training Performance. [arXiv:2608.25756](https://arxiv.org/abs/2608.25756).
@@ -321,9 +326,7 @@ By the standards of public agentic SFT data, our datasets are small to mid-sized
 14. Jain, N. et al. (2025). R2E-Gym: Procedural Environments and Hybrid Verifiers for Scaling Open-Weights SWE Agents. [arXiv:2504.07164](https://arxiv.org/abs/2504.07164).
 15. Yang, J. et al. (2025). SWE-smith: Scaling Data for Software Engineering Agents. [arXiv:2504.21798](https://arxiv.org/abs/2504.21798).
 16. Wang, H. et al. (2025). SWE-Dev: Building Software Engineering Agents with Training and Inference Scaling. [arXiv:2506.07636](https://arxiv.org/abs/2506.07636).
-17. Nebius (2025). SWE-rebench OpenHands trajectories. [Hugging Face](https://huggingface.co/datasets/nebius/SWE-rebench-openhands-trajectories); [blog post](https://nebius.com/blog/posts/openhands-trajectories-with-qwen3-coder-480b).
+17. Nebius (2025). SWE-rebench OpenHands trajectories. [Hugging Face](https://huggingface.co/datasets/nebius/SWE-rebench-openhands-trajectories).
 18. NVIDIA (2026). Nemotron-Terminal-Corpus. [Hugging Face](https://huggingface.co/datasets/nvidia/Nemotron-Terminal-Corpus); [arXiv:2602.21193](https://arxiv.org/abs/2602.21193).
 19. OpenThoughts (2025). OpenThoughts-Agent-v1-SFT. [Hugging Face](https://huggingface.co/datasets/open-thoughts/OpenThoughts-Agent-v1-SFT).
-20. Zeng, L. et al. (2025). Skywork-SWE: Unveiling Data Scaling Laws for Software Engineering in LLMs. [arXiv:2506.19290](https://arxiv.org/abs/2506.19290).
-21. Ivison, H. et al. (2026). Tmax: A Simple Recipe for Terminal Agents. [arXiv:2606.23321](https://arxiv.org/abs/2606.23321).
-22. Raoof, N. et al. (2026). OpenThoughts-Agent: Data Recipes for Agentic Models. [arXiv:2606.24855](https://arxiv.org/abs/2606.24855); OpenThinkerAgent-32B [model card](https://huggingface.co/open-thoughts/OpenThinkerAgent-32B).
+20. Ivison, H. et al. (2026). Tmax: A Simple Recipe for Terminal Agents. [arXiv:2606.23321](https://arxiv.org/abs/2606.23321).
