@@ -150,7 +150,7 @@ Figure 3. SWE-bench Verified (random 100 tasks), pass@1 and pass@8 (%) after 3 a
 Training for 10 epochs outperforms 3 epochs for both vanilla SFT and Plateau Dropping.
 Vanilla SFT gains 23.0 points in pass@1 and 24.0 points in pass@8 over the base model.
 Plateau Dropping further gains 6.5 points in pass@1 and 8.0 points in pass@8 over vanilla SFT.
-We observe that the default learning rate we use (1e-4) for vanilla SFT is actually suboptimal, and using a 3x learning rate performs much better, with vanilla SFT getting 32.5% pass@1 and 66.0% pass@8 at 3 epochs and 50.5% pass@1 and 74.0% pass@8 at 10 epochs.
+We observe that the default learning rate we use (1e-4) for vanilla SFT is actually suboptimal, and using a 3x learning rate performs much better, with vanilla SFT getting 32.5% pass@1 and 66.0% pass@8 at 3 epochs and 50.6% pass@1 and 74.0% pass@8 at 10 epochs.
 The same learning rate also improves Plateau Dropping, where it gets 37.6% pass@1 and 72.0% pass@8 at 3 epochs and 50.4% pass@1 and 72.0% pass@8 at 10 epochs.
 For pass@8, Plateau Dropping with the original learning rate continues to be the best-performing approach, achieving +4.0 points over vanilla SFT at 10 epochs.
 We are continuing to run more learning rate ablations for both vanilla SFT and Plateau Dropping.
@@ -168,7 +168,7 @@ Note that it is uncommon in prior work to train for as long as 10 epochs (agenti
 | 3 epochs, LR 3e-4 | + Plateau Dropping | **37.6** | **72.0** |
 | 10 epochs | + SFT | 42.2 | 70.0 |
 | 10 epochs | + Plateau Dropping | **48.8** | **78.0** |
-| 10 epochs, LR 3e-4 | + SFT | **50.5** | **74.0** |
+| 10 epochs, LR 3e-4 | + SFT | **50.6** | **74.0** |
 | 10 epochs, LR 3e-4 | + Plateau Dropping | 50.4 | 72.0 |
 | 10 epochs, LR 3e-4 | + Plateau Dropping | 50.4 | 72.0 |
 
@@ -250,7 +250,7 @@ The agent-step and span variants also reach the full drop share by step 5. A tok
 
 ## 5. Conclusion
 
-Plateau Dropping is a small change to standard SFT: the trainer remembers each token's loss from its last two visits, and once that loss stops changing, the token is removed from the training loss until it changes again. On long-horizon agentic data it can give a better checkpoint from the same data and compute. At 10 epochs on the SWE data it is 6.5 points above vanilla SFT at pass@1 and 8.0 at pass@8 (48.8% against 42.2%, 78.0% against 70.0%), with a training loss that looks the same. A learning rate three times higher helps vanilla SFT more than it helps Plateau Dropping: at 3 epochs Plateau Dropping's lead holds (+5.1 at pass@1, +6.0 at pass@8), but at 10 epochs the two are level (50.4% against 50.5% pass@1, 72.0% against 74.0% pass@8), and Plateau Dropping at the default rate keeps the best pass@8 of any model we trained (Section 3.1). On the terminal benchmarks there is no consistent gain: every difference, in either direction, is within two standard errors (Section 3.2). TailSFT and five variants of it do not help, with one exception: a per-agent-step variant is ahead on Terminal-Bench 2.0 but behind on TB-Lite (Section 3.3).
+Plateau Dropping is a small change to standard SFT: the trainer remembers each token's loss from its last two visits, and once that loss stops changing, the token is removed from the training loss until it changes again. On long-horizon agentic data it can give a better checkpoint from the same data and compute. At 10 epochs on the SWE data it is 6.5 points above vanilla SFT at pass@1 and 8.0 at pass@8 (48.8% against 42.2%, 78.0% against 70.0%), with a training loss that looks the same. A learning rate three times higher helps vanilla SFT more than it helps Plateau Dropping: at 3 epochs Plateau Dropping's lead holds (+5.1 at pass@1, +6.0 at pass@8), but at 10 epochs the two are level (50.4% against 50.6% pass@1, 72.0% against 74.0% pass@8), and Plateau Dropping at the default rate keeps the best pass@8 of any model we trained (Section 3.1). On the terminal benchmarks there is no consistent gain: every difference, in either direction, is within two standard errors (Section 3.2). TailSFT and five variants of it do not help, with one exception: a per-agent-step variant is ahead on Terminal-Bench 2.0 but behind on TB-Lite (Section 3.3).
 
 ## Appendix A: training bugs we found along the way
 
