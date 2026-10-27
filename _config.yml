@@ -3,6 +3,9 @@ url: "https://hrshtv.github.io"
 
 future: true
 
+# Blog posts live in _posts/ as YYYY-MM-DD-slug.md
+permalink: /blog/:title/
+
 plugins:
   - jekyll-sitemap
 

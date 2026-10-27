@@ -1,0 +1,28 @@
+---
+layout: default
+---
+
+<div class="container-fluid mb-3 text-content">
+
+  <article class="col-md-8 mx-auto mt-5">
+
+    <header class="mb-4">
+      <h1 class="post-title font-weight-light">{{ page.title }}</h1>
+      <div class="post-meta">
+        <code class="text-light">{{ page.date | date: "%b %d, %Y" }}</code>
+        <span class="post-meta-sep text-light">&middot;</span>
+        <span class="post-authors">{{ page.authors | default: site.title }}</span>
+      </div>
+    </header>
+
+    <div class="post-content">
+      {{ content }}
+    </div>
+
+    <div class="mt-5 mb-3">
+      <a href="{{ '/blog' | relative_url }}"><i class="bi bi-arrow-left"></i> All posts</a>
+    </div>
+
+  </article>
+
+</div>

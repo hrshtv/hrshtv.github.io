@@ -24,22 +24,22 @@
   
   <!-- Meta Tags from https://metatags.io/ -->
   <meta name="title" content="{{page.title}}">
-  <meta name="description" content="Pre-Doctoral Researcher at Google DeepMind">
+  <meta name="description" content="{{ page.description | default: 'Pre-Doctoral Researcher at Google DeepMind' | strip_html | escape }}">
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://hrshtv.github.io/">
   <meta property="og:title" content="{{page.title}}">
-  <meta property="og:description" content="Pre-Doctoral Researcher at Google DeepMind">
-  <meta property="og:image" content="assets/favicon/logo.png">
+  <meta property="og:description" content="{{ page.description | default: 'Pre-Doctoral Researcher at Google DeepMind' | strip_html | escape }}">
+  <meta property="og:image" content="https://hrshtv.github.io/assets/favicon/logo.png">
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image">
   <meta property="twitter:url" content="https://hrshtv.github.io/">
   <meta property="twitter:title" content="{{page.title}}">
-  <meta property="twitter:description" content="Pre-Doctoral Researcher at Google DeepMind">
-  <meta property="twitter:image" content="assets/favicon/logo.png">
+  <meta property="twitter:description" content="{{ page.description | default: 'Pre-Doctoral Researcher at Google DeepMind' | strip_html | escape }}">
+  <meta property="twitter:image" content="https://hrshtv.github.io/assets/favicon/logo.png">
 
   <!--Favicon-->
-  <link rel='icon' href='assets/favicon/logo.png' type='image/x-icon'/ >
+  <link rel='icon' href='/assets/favicon/logo.png' type='image/x-icon'/ >
   
   <!-- jQuery -->
   <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
@@ -53,7 +53,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css">
 
   <!-- Global CSS, include at end to override Bootstrap CSS -->
-  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="/assets/css/main.css?v={{ site.time | date: '%s' }}">
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -64,6 +64,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,300;0,400;0,700;1,300;1,400;1,700&display=swap" rel="stylesheet">
   <!--Incosolata-->
   <link href="https://fonts.googleapis.com/css2?family=Inconsolata:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  {% if page.math %}
+  <!-- KaTeX, enabled per-post with `math: true` -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters: [{left: '$$', right: '$$', display: true}, {left: '\\[', right: '\\]', display: true}, {left: '\\(', right: '\\)', display: false}, {left: '$', right: '$', display: false}]});"></script>
+  {% endif %}
 
   <!--Console-->
   <meta name="google-site-verification" content="45OX3877nNJ19QJjb2BV3R37u9ljID4BJm-3tmA7g4Q" />

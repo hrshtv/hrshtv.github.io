@@ -6,12 +6,12 @@
   <body>
 
     {% include navbar.html %}
-    <div>
+    <div class="site-content">
         {{ content }}
     </div>
     {% include footer.html %}
 
-    <script type="text/javascript" src="assets/js/dark.js"></script>
+    <script type="text/javascript" src="/assets/js/dark.js?v={{ site.time | date: '%s' }}"></script>
 
   </body>
 </html>
