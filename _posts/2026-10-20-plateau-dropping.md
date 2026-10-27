@@ -141,7 +141,7 @@ Terminal tasks are run with 3x the default time limits, and when an agent hits t
 Sandbox and API errors are counted as failures.
 We report pass@1 and pass@8 for all models. We sample at temperature 1 with no top-p / top-k / penalties.
 
-Note: while running SWE-bench Verified, we noticed that before running the tests, the standard Harbor task script deletes every file the agent created that is not tracked by git. This marks several correct fixes as failures. To prevent this, we keep all additional files except the ones touched by the task's test patch.
+Note: the SWE-bench Verified tasks served by Harbor's registry (`swebench-verified@1.0`) run `git clean -fd` before the tests, which deletes every file the agent created that is not tracked by git, so a correct fix that adds a new file is marked as a failure. We instead use task scripts that delete only the untracked files touched by the task's test patch, which is what Harbor's SWE-bench adapter now does as well ([PR #1094](https://github.com/harbor-framework/harbor/pull/1094)).
 
 ### 4.1 SWE
 
@@ -151,7 +151,7 @@ Table 1 thus compares pass@1 and pass@8 for SFT and PD at 10 epochs, each with i
 All results are averaged over 2 training runs with different data orders.
 PD is level with SFT in pass@1 and outperforms it by 4.5 points in pass@8.
 
-Note that it is uncommon in prior work to train for as long as 10 epochs (agentic SFT recipes mostly train for 2 to 3: 2 in [R2E-Gym](https://arxiv.org/abs/2504.07164), [Nemotron-Terminal](https://arxiv.org/abs/2602.21193) and [TMax](https://arxiv.org/abs/2606.23321), up to 3 in [SWE-smith](https://arxiv.org/abs/2504.21798)), but we find that it can work best, especially when using SFT to specialize in a domain (here, agentic tasks) with limited data.
+Note that it is uncommon in prior work to train for as long as 10 epochs (agentic SFT recipes train for 2 to 7: 2 in [R2E-Gym](https://arxiv.org/abs/2504.07164), [Nemotron-Terminal](https://arxiv.org/abs/2602.21193) and [TMax](https://arxiv.org/abs/2606.23321), up to 3 in [SWE-smith](https://arxiv.org/abs/2504.21798), up to 5 in [SWE-Gym](https://arxiv.org/abs/2412.21139) and 7 in [OpenThoughts-Agent](https://huggingface.co/open-thoughts/OpenThinker-Agent-v1-SFT)), but we find that it can work best, especially when using SFT to specialize in a domain (here, agentic tasks) with limited data.
 
 **Table 1.** SWE-bench Verified (random 100 tasks), 10 epochs (760 steps), pass@1 and pass@8 in %, 8 seeds, averaged over 2 training runs with different data orders.
 
