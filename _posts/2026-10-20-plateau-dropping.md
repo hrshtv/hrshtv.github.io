@@ -36,13 +36,13 @@ We find that this simple approach significantly improves coverage (as measured b
   - [4.4 Learnable tasks](#44-learnable-tasks)
   - [4.5 What is Plateau Dropping helping with?](#45-what-is-plateau-dropping-helping-with)
 - [5. Next steps](#5-next-steps)
+- [References](#references)
 - [Acknowledgements](#acknowledgements)
 - [Appendix A: training/infra footguns](#appendix-a-traininginfra-footguns)
 - [Appendix B: dataset sizes in agentic SFT](#appendix-b-dataset-sizes-in-agentic-sft)
 - [Appendix C: annotated trajectories](#appendix-c-annotated-trajectories)
 - [Appendix D: TailSFT coverage ratio](#appendix-d-tailsft-coverage-ratio)
 - [Appendix E: memory overhead of Plateau Dropping](#appendix-e-memory-overhead-of-plateau-dropping)
-- [References](#references)
 
 </div>
 </div>
@@ -284,6 +284,32 @@ That leaves alternative reasoning paths reachable when sampling, and some of the
 
 **Evaluation.** We limit our agentic evals to SWE and terminal tasks. However, there are other practically relevant "agentic" domains like web search ([BrowseComp](https://arxiv.org/abs/2504.12516)), tool use ([τ-bench](https://arxiv.org/abs/2406.12045)) and computer use ([OSWorld](https://arxiv.org/abs/2404.07972)), which we are yet to evaluate on.
 
+## References
+
+1. Malladi, S. et al. (2026). TailSFT: Filtered Fine-Tuning Improves Post-Training Performance. [arXiv:2608.25756](https://arxiv.org/abs/2608.25756).
+2. Dang, X., Baek, C., Wen, K., Kolter, Z. and Raghunathan, A. (2025). Weight Ensembling Improves Reasoning in Language Models. [arXiv:2504.10478](https://arxiv.org/abs/2504.10478).
+3. Chen, F., Raventos, A., Cheng, N., Ganguli, S. and Druckmann, S. (2025). Rethinking Fine-Tuning when Scaling Test-Time Compute: Limiting Confidence Improves Mathematical Reasoning. [arXiv:2502.07154](https://arxiv.org/abs/2502.07154).
+4. GLM-4.5 Team (2025). GLM-4.5: Agentic, Reasoning, and Coding (ARC) Foundation Models. [arXiv:2508.06471](https://arxiv.org/abs/2508.06471).
+5. DeepSeek-AI (2025). DeepSeek-V3.2: Pushing the Frontier of Open Large Language Models. [arXiv:2512.02556](https://arxiv.org/abs/2512.02556).
+6. Xiaomi LLM-Core Team (2026). MiMo-V2-Flash Technical Report. [arXiv:2601.02780](https://arxiv.org/abs/2601.02780).
+7. Lin, Z. et al. (2024). Rho-1: Not All Tokens Are What You Need. [arXiv:2404.07965](https://arxiv.org/abs/2404.07965).
+8. Jiang, A. H. et al. (2019). Accelerating Deep Learning by Focusing on the Biggest Losers. [arXiv:1910.00762](https://arxiv.org/abs/1910.00762).
+9. Kang, D. and Hashimoto, T. (2020). Improved Natural Language Generation via Loss Truncation. ACL 2020. [arXiv:2004.14589](https://arxiv.org/abs/2004.14589).
+10. Lin, T.-Y. et al. (2017). Focal Loss for Dense Object Detection. [arXiv:1708.02002](https://arxiv.org/abs/1708.02002).
+11. Pan, J. et al. (2025). Training Software Engineering Agents and Verifiers with SWE-Gym. [arXiv:2412.21139](https://arxiv.org/abs/2412.21139).
+12. Jain, N. et al. (2025). R2E-Gym: Procedural Environments and Hybrid Verifiers for Scaling Open-Weights SWE Agents. [arXiv:2504.07164](https://arxiv.org/abs/2504.07164).
+13. Yang, J. et al. (2025). SWE-smith: Scaling Data for Software Engineering Agents. [arXiv:2504.21798](https://arxiv.org/abs/2504.21798).
+14. Wang, H. et al. (2025). SWE-Dev: Building Software Engineering Agents with Training and Inference Scaling. [arXiv:2506.07636](https://arxiv.org/abs/2506.07636).
+15. Nebius (2025). SWE-rebench OpenHands trajectories. [Hugging Face](https://huggingface.co/datasets/nebius/SWE-rebench-openhands-trajectories).
+16. NVIDIA (2026). Nemotron-Terminal-Corpus. [Hugging Face](https://huggingface.co/datasets/nvidia/Nemotron-Terminal-Corpus); [arXiv:2602.21193](https://arxiv.org/abs/2602.21193).
+17. OpenThoughts (2025). OpenThoughts-Agent-v1-SFT. [Hugging Face](https://huggingface.co/datasets/open-thoughts/OpenThoughts-Agent-v1-SFT).
+18. Ivison, H. et al. (2026). Tmax: A Simple Recipe for Terminal Agents. [arXiv:2606.23321](https://arxiv.org/abs/2606.23321).
+19. Gandhi, K., Garg, S., Goodman, N. and Papailiopoulos, D. (2026). Endless Terminals: Scaling RL Environments for Terminal Agents. [arXiv:2601.16443](https://arxiv.org/abs/2601.16443).
+20. Li, Z. et al. (2026). Recursive Synthesis for Long-Horizon Terminal Tasks. [arXiv:2608.05466](https://arxiv.org/abs/2608.05466).
+21. Wei, J. et al. (2025). BrowseComp: A Simple Yet Challenging Benchmark for Browsing Agents. [arXiv:2504.12516](https://arxiv.org/abs/2504.12516).
+22. Yao, S. et al. (2024). τ-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains. [arXiv:2406.12045](https://arxiv.org/abs/2406.12045).
+23. Xie, T. et al. (2024). OSWorld: Benchmarking Multimodal Agents for Open-Ended Tasks in Real Computer Environments. [arXiv:2404.07972](https://arxiv.org/abs/2404.07972).
+
 ## Acknowledgements
 
 I thank [Bespoke Labs](https://bespokelabs.ai/) for supporting my coding agent plan, Alex Dimakis for his advice, and the [Jülich Supercomputing Centre (JSC)](https://www.fz-juelich.de/en/jsc) and the [Texas Advanced Computing Center (TACC)](https://tacc.utexas.edu/) for providing compute for this work.
@@ -437,32 +463,6 @@ All of this costs about 1.3% in step time (9.20 s per step against 9.08 s for va
 **Scaling.** Our implementation is far from optimal: the table grows with the number of trajectories times the maximum context length, and is replicated on every process.
 Storing only the trained positions would cut it to about 2 GB on our SWE data, storing the losses in fp16 and the count in uint8 would bring it down to 6 bytes per token, and sharding the table across processes would remove the replication.
 None of these were necessary at our data scale, but they would be at larger token budgets.
-
-## References
-
-1. Malladi, S. et al. (2026). TailSFT: Filtered Fine-Tuning Improves Post-Training Performance. [arXiv:2608.25756](https://arxiv.org/abs/2608.25756).
-2. Dang, X., Baek, C., Wen, K., Kolter, Z. and Raghunathan, A. (2025). Weight Ensembling Improves Reasoning in Language Models. [arXiv:2504.10478](https://arxiv.org/abs/2504.10478).
-3. Chen, F., Raventos, A., Cheng, N., Ganguli, S. and Druckmann, S. (2025). Rethinking Fine-Tuning when Scaling Test-Time Compute: Limiting Confidence Improves Mathematical Reasoning. [arXiv:2502.07154](https://arxiv.org/abs/2502.07154).
-4. GLM-4.5 Team (2025). GLM-4.5: Agentic, Reasoning, and Coding (ARC) Foundation Models. [arXiv:2508.06471](https://arxiv.org/abs/2508.06471).
-5. DeepSeek-AI (2025). DeepSeek-V3.2: Pushing the Frontier of Open Large Language Models. [arXiv:2512.02556](https://arxiv.org/abs/2512.02556).
-6. Xiaomi LLM-Core Team (2026). MiMo-V2-Flash Technical Report. [arXiv:2601.02780](https://arxiv.org/abs/2601.02780).
-7. Lin, Z. et al. (2024). Rho-1: Not All Tokens Are What You Need. [arXiv:2404.07965](https://arxiv.org/abs/2404.07965).
-8. Jiang, A. H. et al. (2019). Accelerating Deep Learning by Focusing on the Biggest Losers. [arXiv:1910.00762](https://arxiv.org/abs/1910.00762).
-9. Kang, D. and Hashimoto, T. (2020). Improved Natural Language Generation via Loss Truncation. ACL 2020. [arXiv:2004.14589](https://arxiv.org/abs/2004.14589).
-10. Lin, T.-Y. et al. (2017). Focal Loss for Dense Object Detection. [arXiv:1708.02002](https://arxiv.org/abs/1708.02002).
-11. Pan, J. et al. (2025). Training Software Engineering Agents and Verifiers with SWE-Gym. [arXiv:2412.21139](https://arxiv.org/abs/2412.21139).
-12. Jain, N. et al. (2025). R2E-Gym: Procedural Environments and Hybrid Verifiers for Scaling Open-Weights SWE Agents. [arXiv:2504.07164](https://arxiv.org/abs/2504.07164).
-13. Yang, J. et al. (2025). SWE-smith: Scaling Data for Software Engineering Agents. [arXiv:2504.21798](https://arxiv.org/abs/2504.21798).
-14. Wang, H. et al. (2025). SWE-Dev: Building Software Engineering Agents with Training and Inference Scaling. [arXiv:2506.07636](https://arxiv.org/abs/2506.07636).
-15. Nebius (2025). SWE-rebench OpenHands trajectories. [Hugging Face](https://huggingface.co/datasets/nebius/SWE-rebench-openhands-trajectories).
-16. NVIDIA (2026). Nemotron-Terminal-Corpus. [Hugging Face](https://huggingface.co/datasets/nvidia/Nemotron-Terminal-Corpus); [arXiv:2602.21193](https://arxiv.org/abs/2602.21193).
-17. OpenThoughts (2025). OpenThoughts-Agent-v1-SFT. [Hugging Face](https://huggingface.co/datasets/open-thoughts/OpenThoughts-Agent-v1-SFT).
-18. Ivison, H. et al. (2026). Tmax: A Simple Recipe for Terminal Agents. [arXiv:2606.23321](https://arxiv.org/abs/2606.23321).
-19. Gandhi, K., Garg, S., Goodman, N. and Papailiopoulos, D. (2026). Endless Terminals: Scaling RL Environments for Terminal Agents. [arXiv:2601.16443](https://arxiv.org/abs/2601.16443).
-20. Li, Z. et al. (2026). Recursive Synthesis for Long-Horizon Terminal Tasks. [arXiv:2608.05466](https://arxiv.org/abs/2608.05466).
-21. Wei, J. et al. (2025). BrowseComp: A Simple Yet Challenging Benchmark for Browsing Agents. [arXiv:2504.12516](https://arxiv.org/abs/2504.12516).
-22. Yao, S. et al. (2024). τ-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains. [arXiv:2406.12045](https://arxiv.org/abs/2406.12045).
-23. Xie, T. et al. (2024). OSWorld: Benchmarking Multimodal Agents for Open-Ended Tasks in Real Computer Environments. [arXiv:2404.07972](https://arxiv.org/abs/2404.07972).
 
 ## Citation
 
