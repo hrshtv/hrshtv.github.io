@@ -286,7 +286,7 @@ That leaves alternative reasoning paths reachable when sampling, and some of the
 
 ## Acknowledgements
 
-We thank [Bespoke Labs](https://bespokelabs.ai/) for supporting my coding agent plan, Alex Dimakis for his advice, and the [Jülich Supercomputing Centre (JSC)](https://www.fz-juelich.de/en/jsc) and the [Texas Advanced Computing Center (TACC)](https://tacc.utexas.edu/) for providing compute for this work.
+I thank [Bespoke Labs](https://bespokelabs.ai/) for supporting my coding agent plan, Alex Dimakis for his advice, and the [Jülich Supercomputing Centre (JSC)](https://www.fz-juelich.de/en/jsc) and the [Texas Advanced Computing Center (TACC)](https://tacc.utexas.edu/) for providing compute for this work.
 
 ## Appendix A: training/infra footguns
 
