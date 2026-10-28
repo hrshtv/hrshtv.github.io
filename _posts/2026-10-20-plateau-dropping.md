@@ -2,7 +2,7 @@
 layout: post
 title: "Plateau Dropping: a simple SFT rule for better agentic post-training"
 description: "Dropping each token from the SFT loss once its loss stops changing gives gains over vanilla SFT on long-horizon agentic tasks."
-authors: Harshit Varma
+authors: <a href="/">Harshit Varma</a>, <a href="https://lukedhlee.github.io/">Donghyun Lee</a>, <a href="https://people.eecs.berkeley.edu/~alexdimakis/">Alex Dimakis</a>
 list_description: false
 math: true
 ---
@@ -36,6 +36,7 @@ We find that this simple approach significantly improves coverage (as measured b
   - [4.4 Learnable tasks](#44-learnable-tasks)
   - [4.5 What is Plateau Dropping helping with?](#45-what-is-plateau-dropping-helping-with)
 - [5. Next steps](#5-next-steps)
+- [Acknowledgements](#acknowledgements)
 - [Appendix A: training/infra footguns](#appendix-a-traininginfra-footguns)
 - [Appendix B: dataset sizes in agentic SFT](#appendix-b-dataset-sizes-in-agentic-sft)
 - [Appendix C: annotated trajectories](#appendix-c-annotated-trajectories)
@@ -283,6 +284,10 @@ That leaves alternative reasoning paths reachable when sampling, and some of the
 
 **Evaluation.** We limit our agentic evals to SWE and terminal tasks. However, there are other practically relevant "agentic" domains like web search ([BrowseComp](https://arxiv.org/abs/2504.12516)), tool use ([τ-bench](https://arxiv.org/abs/2406.12045)) and computer use ([OSWorld](https://arxiv.org/abs/2404.07972)), which we are yet to evaluate on.
 
+## Acknowledgements
+
+We thank [Bespoke Labs](https://bespokelabs.ai/) for supporting my coding agent plan, Alex Dimakis for his advice, and the [Jülich Supercomputing Centre (JSC)](https://www.fz-juelich.de/en/jsc) and the [Texas Advanced Computing Center (TACC)](https://tacc.utexas.edu/) for providing compute for this work.
+
 ## Appendix A: training/infra footguns
 
 We ran into several issues while training.
@@ -466,7 +471,7 @@ If you find this post useful, please cite it as:
 ```bibtex
 @misc{varma2026plateaudropping,
   title  = {Plateau Dropping: a simple SFT rule for better agentic post-training},
-  author = {Varma, Harshit},
+  author = {Varma, Harshit and Lee, Donghyun and Dimakis, Alexandros G.},
   year   = {2026},
   month  = oct,
   url    = {https://hrshtv.github.io/blog/plateau-dropping/}
