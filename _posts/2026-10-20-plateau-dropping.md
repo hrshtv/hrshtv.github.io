@@ -47,6 +47,10 @@ We find that this simple approach significantly improves coverage (as measured b
 </div>
 </div>
 
+<div class="post-field">
+<iframe src="/assets/blog/plateau-dropping/field.html" title="Plateau Dropping: per-token losses across visits, in 3D"></iframe>
+</div>
+
 ---
 
 ## 1. Introduction

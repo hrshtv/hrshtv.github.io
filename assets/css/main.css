@@ -374,6 +374,10 @@ body {
 .post-content .tok-c { color: var(--text-light-color); }
 
 /* Figure 2: token bands per pass, as stacked bars */
+/* 3D Plateau Dropping figure below the summary; the page inside sizes the iframe to its content */
+.post-content .post-field { margin: 2rem 0 0.5rem; }
+.post-content .post-field iframe { display: block; width: 100%; height: 1000px; border: 0; }
+
 .post-content .band-chart { max-width: 34rem; margin: 1.5rem auto 0.5rem; font-size: 0.75rem; line-height: 1.2; }
 .post-content .band-legend { margin: 0 0 0.6rem; text-align: center; color: var(--text-light-color); }
 .post-content .band-legend span { display: inline-block; width: 0.8em; height: 0.8em; margin: 0 0.3em 0 0.9em; vertical-align: -0.05em; border-radius: 2px; }
@@ -498,4 +502,11 @@ body {
 @media (max-width: 1199.98px) {
   .post-intro { flex-direction: column; gap: 1.5rem; }
   .post-toc { flex-basis: auto; width: 100%; }
+}
+
+/* Wide screens: the contents box moves out of the text column into the right margin, level with the summary */
+@media (min-width: 1400px) {
+  .post-content { position: relative; }
+  .post-intro { display: block; }
+  .post-toc { position: absolute; top: 0; left: calc(100% + 1.5rem); width: 13rem; }
 }
