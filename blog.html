@@ -20,7 +20,7 @@ layout: default
         <li class="post-item">
           <code class="post-date text-light">{{ post.date | date: "%b %d, %Y" }}</code>
           <div>
-            <a class="post-link" href="{{ post.url | relative_url }}">{{ post.title }}</a>
+            <a class="post-link" href="{% if post.external_url %}{{ post.external_url }}{% else %}{{ post.url | relative_url }}{% endif %}">{{ post.title }}</a>
             {% if post.description and post.list_description != false %}
               <div class="post-description text-light">{{ post.description }}</div>
             {% endif %}
